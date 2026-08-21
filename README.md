@@ -203,3 +203,13 @@ MIT — Build freely on BNB Chain.
 
 **Built for BNB Chain "Build the Era" Hackathon**  
 *Agent Bazaar — Where smart money meets smart agents*
+### WalletConnect Setup (Required for Demo)
+
+1. Go to [cloud.walletconnect.com](https://cloud.walletconnect.com)
+2. Sign up / Login
+3. Create a new project
+4. Copy the Project ID
+5. Add to :
+   
+
+**Note:** The app works with  projectId in development, but RainbowKit will show a warning. For hackathon demo, use a real projectId.
