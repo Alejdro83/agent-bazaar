@@ -1,260 +1,275 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { useTelegram } from '@/hooks/useTelegram';
 import { MiniAppShell } from '@/components/miniapp/MiniAppShell';
-import { useParams } from 'next/navigation';
 
-// Demo agent data — will be replaced with Supabase fetch
-const DEMO_AGENT = {
-  id: '1',
-  name: 'BeefyHarvester v2',
-  description: 'Automatically harvests and restakes yield across Venus, PancakeSwap, and Beefy protocols. Optimizes for highest APY by monitoring rate changes and rebalancing positions. Supports USDT, USDC, BNB, and CAKE pools.',
-  category: 'yield',
-  pricing_type: 'percentage',
-  pricing_value: 0.5,
-  avg_rating: 4.8,
-  total_hires: 340,
-  status: 'active',
-  wallet_address: '0x1234...abcd',
-  seller: { name: 'YieldLabs', rating: 4.9 },
-  capabilities: [
-    'Auto-harvest rewards from Venus, PancakeSwap, Beefy',
-    'Restake compounds for maximum APY',
-    'Supports USDT, USDC, BNB, CAKE pools',
-    'Configurable risk tolerance',
-    'Emergency withdrawal capability',
-  ],
-  permissions: [
-    'Harvest rewards only',
-    'Restake in same protocol',
-    'NO principal withdrawal',
-    'Max $50,000/day transaction limit',
-    'Revocable at any time via Altana',
-  ],
-  stats: {
-    avg_apy_boost: '+3.2%',
-    total_value_locked: '$2.4M',
-    uptime: '99.7%',
-    avg_harvest_time: '4.2h',
-  },
-  reviews: [
-    { user: 'CryptoFarmer', rating: 5, comment: 'Best yield optimizer I\'ve used. APY went up 3% on my Venus positions.' },
-    { user: 'DeFiWhale', rating: 5, comment: 'Set it and forget it. Been running for 3 months with zero issues.' },
-    { user: 'YieldHunter', rating: 4, comment: 'Works great, wish it supported more chains.' },
-  ],
-};
+interface Agent {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  subcategory: string | null;
+  pricing_type: string;
+  pricing_value: number;
+  pricing_currency: string;
+  wallet_address: string;
+  status: string;
+  avatar_url: string | null;
+  total_hires: number;
+  avg_rating: number;
+  total_revenue: number;
+  created_at: string;
+  metadata: Record<string, unknown> | null;
+}
 
-function RatingStars({ rating }: { rating: number }) {
-  return (
-    <div className="flex items-center gap-1">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <span
-          key={star}
-          className={star <= rating ? 'text-amber-400' : 'text-gray-600'}
-        >
-          ★
-        </span>
-      ))}
-    </div>
-  );
+interface Rating {
+  id: string;
+  score: number;
+  comment: string | null;
+  created_at: string;
+  rater_id: string;
 }
 
 export default function AgentDetailPage() {
-  const { id } = useParams();
-  const { haptic, user } = useTelegram();
-  const [activeTab, setActiveTab] = useState<'overview' | 'reviews' | 'permissions'>('overview');
-  const [isHiring, setIsHiring] = useState(false);
+  const params = useParams();
+  const { haptic, mainButton, user, isAuthenticated } = useTelegram();
+  const [agent, setAgent] = useState<Agent | null>(null);
+  const [ratings, setRatings] = useState<Rating[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'about' | 'reviews' | 'terms'>('about');
+  const [hiring, setHiring] = useState(false);
 
-  const agent = DEMO_AGENT; // TODO: Fetch from Supabase by id
+  useEffect(() => {
+    const fetchAgent = async () => {
+      try {
+        const res = await fetch(`/api/agents/${params.id}`);
+        if (!res.ok) throw new Error('Agent not found');
+        const data = await res.json();
+        setAgent(data.agent);
+        setRatings(data.ratings);
+      } catch (err) {
+        setError('Agent not found');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAgent();
+  }, [params.id]);
+
+  // Setup Main Button for hire
+  useEffect(() => {
+    if (!agent || !mainButton) return;
+
+    mainButton.text = `Hire — ${agent.pricing_type === 'free' ? 'Free' : agent.pricing_type === 'percentage' ? `${agent.pricing_value}% yield` : `$${agent.pricing_value}/mo`}`;
+    mainButton.show();
+    mainButton.onClick(() => handleHire());
+
+    return () => {
+      mainButton.hide();
+    };
+  }, [agent, mainButton]);
 
   const handleHire = async () => {
-    haptic?.impactOccurred('heavy');
-    setIsHiring(true);
-    
-    // TODO: Implement x402 payment flow
-    // For now, simulate
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    haptic?.notificationOccurred('success');
-    setIsHiring(false);
-    
-    // Send data back to bot
-    if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.sendData(JSON.stringify({
-        action: 'hire_confirmed',
-        agent_id: agent.id,
-        agent_name: agent.name,
-        pricing: agent.pricing_type === 'percentage' 
-          ? `${agent.pricing_value}% of yield` 
-          : agent.pricing_type === 'free' 
-            ? 'Free' 
-            : `$${agent.pricing_value}/month`,
-        contract_id: 'demo-contract-123',
-      }));
+    if (!agent || !user) return;
+
+    haptic?.impactOccurred('medium');
+    setHiring(true);
+
+    try {
+      // Mock x402 payment flow
+      // In production: this would initiate an x402 payment via Altana wallet
+      const res = await fetch('/api/contracts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-telegram-init-data': window.Telegram?.WebApp?.initData || '',
+        },
+        body: JSON.stringify({
+          agent_id: agent.id,
+          pricing_type: agent.pricing_type,
+          pricing_value: agent.pricing_value,
+          pricing_currency: agent.pricing_currency,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to create contract');
+
+      haptic?.notificationOccurred('success');
+      alert('Agent hired successfully! (Demo mode)');
+    } catch (err) {
+      haptic?.notificationOccurred('error');
+      alert('Failed to hire agent. Please try again.');
+    } finally {
+      setHiring(false);
     }
   };
 
+  if (loading) {
+    return (
+      <MiniAppShell>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-400"></div>
+        </div>
+      </MiniAppShell>
+    );
+  }
+
+  if (error || !agent) {
+    return (
+      <MiniAppShell>
+        <div className="text-center py-12">
+          <p className="text-red-400 text-lg">{error || 'Agent not found'}</p>
+          <a href="/" className="text-amber-400 hover:text-amber-300 mt-4 inline-block">
+            ← Back to Browse
+          </a>
+        </div>
+      </MiniAppShell>
+    );
+  }
+
+  const categoryIcon =
+    agent.category === 'yield' ? '🌾' :
+    agent.category === 'trading' ? '📈' :
+    agent.category === 'defi' ? '🏦' :
+    agent.category === 'monitoring' ? '👁️' : '📊';
+
   return (
     <MiniAppShell>
-      {/* Back button would be handled by Telegram */}
-      
-      {/* Agent Header */}
-      <div className="mb-6">
-        <div className="flex items-start gap-4 mb-4">
-          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center text-3xl">
-            🌾
-          </div>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-white">{agent.name}</h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-900/30 text-emerald-400">
-                {agent.category}
-              </span>
-              <span className="text-sm text-gray-400">by {agent.seller.name}</span>
+      {/* Back button */}
+      <a href="/" className="text-amber-400 hover:text-amber-300 text-sm mb-4 inline-block">
+        ← Back
+      </a>
+
+      {/* Header */}
+      <div className="flex items-start gap-4 mb-6">
+        <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center text-2xl">
+          {categoryIcon}
+        </div>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold text-white">{agent.name}</h1>
+          <div className="flex items-center gap-3 mt-1">
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-900/30 text-amber-400">
+              {agent.category}
+            </span>
+            <div className="flex items-center gap-1">
+              <span className="text-amber-400">★</span>
+              <span className="text-sm text-gray-300">{agent.avg_rating.toFixed(1)}</span>
             </div>
+            <span className="text-xs text-gray-500">{agent.total_hires} hires</span>
           </div>
         </div>
-
-        <p className="text-gray-300 text-sm leading-relaxed">
-          {agent.description}
-        </p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-3">
-          <div className="text-xs text-gray-500 mb-1">Avg APY Boost</div>
-          <div className="text-lg font-bold text-green-400">{agent.stats.avg_apy_boost}</div>
+      {/* Pricing card */}
+      <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wider">Pricing</p>
+            <p className="text-2xl font-bold text-white mt-1">
+              {agent.pricing_type === 'free' ? 'Free' :
+               agent.pricing_type === 'percentage' ? `${agent.pricing_value}%` :
+               `$${agent.pricing_value}`}
+              {agent.pricing_type === 'fixed' && (
+                <span className="text-sm text-gray-500 font-normal">/mo</span>
+              )}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-gray-500 uppercase tracking-wider">Revenue</p>
+            <p className="text-lg font-semibold text-green-400 mt-1">
+              ${agent.total_revenue.toLocaleString()}
+            </p>
+          </div>
         </div>
-        <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-3">
-          <div className="text-xs text-gray-500 mb-1">Total Hires</div>
-          <div className="text-lg font-bold text-amber-400">{agent.total_hires}</div>
-        </div>
-        <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-3">
-          <div className="text-xs text-gray-500 mb-1">TVL</div>
-          <div className="text-lg font-bold text-blue-400">{agent.stats.total_value_locked}</div>
-        </div>
-        <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-3">
-          <div className="text-xs text-gray-500 mb-1">Uptime</div>
-          <div className="text-lg font-bold text-purple-400">{agent.stats.uptime}</div>
-        </div>
-      </div>
-
-      {/* Rating */}
-      <div className="flex items-center gap-3 mb-6 p-3 rounded-lg border border-gray-800 bg-gray-900/50">
-        <RatingStars rating={Math.round(agent.avg_rating)} />
-        <span className="text-lg font-bold text-white">{agent.avg_rating}</span>
-        <span className="text-sm text-gray-400">({agent.total_hires} reviews)</span>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-4 bg-gray-900/50 rounded-lg p-1">
-        {(['overview', 'reviews', 'permissions'] as const).map((tab) => (
+      <div className="flex border-b border-gray-800 mb-4">
+        {(['about', 'reviews', 'terms'] as const).map((tab) => (
           <button
             key={tab}
-            onClick={() => {
-              setActiveTab(tab);
-              haptic?.selectionChanged();
-            }}
-            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 py-2 text-sm font-medium capitalize transition-colors ${
               activeTab === tab
-                ? 'bg-amber-500/20 text-amber-400'
-                : 'text-gray-400 hover:text-white'
+                ? 'text-amber-400 border-b-2 border-amber-400'
+                : 'text-gray-500 hover:text-gray-300'
             }`}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab}
           </button>
         ))}
       </div>
 
-      {/* Tab Content */}
-      <div className="mb-20">
-        {activeTab === 'overview' && (
-          <div>
-            <h3 className="text-sm font-semibold text-gray-400 mb-3">Capabilities</h3>
-            <ul className="space-y-2">
-              {agent.capabilities.map((cap, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
-                  <span className="text-green-400 mt-0.5">✓</span>
-                  {cap}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+      {/* Tab content */}
+      {activeTab === 'about' && (
+        <div>
+          <p className="text-gray-300 leading-relaxed">{agent.description}</p>
+          {agent.subcategory && (
+            <p className="text-sm text-gray-500 mt-3">
+              Subcategory: {agent.subcategory}
+            </p>
+          )}
+        </div>
+      )}
 
-        {activeTab === 'reviews' && (
-          <div className="space-y-4">
-            {agent.reviews.map((review, i) => (
-              <div key={i} className="rounded-lg border border-gray-800 bg-gray-900/50 p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-white">{review.user}</span>
-                  <RatingStars rating={review.rating} />
-                </div>
-                <p className="text-sm text-gray-400">{review.comment}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {activeTab === 'permissions' && (
-          <div>
-            <h3 className="text-sm font-semibold text-gray-400 mb-3">What this agent can do</h3>
-            <ul className="space-y-2">
-              {agent.permissions.map((perm, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
-                  <span className={perm.startsWith('NO') ? 'text-red-400 mt-0.5' : 'text-amber-400 mt-0.5'}>
-                    {perm.startsWith('NO') ? '✗' : '⚡'}
+      {activeTab === 'reviews' && (
+        <div className="space-y-3">
+          {ratings.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No reviews yet</p>
+          ) : (
+            ratings.map((rating) => (
+              <div key={rating.id} className="rounded-lg border border-gray-800 bg-gray-900/30 p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-amber-400">{'★'.repeat(rating.score)}</span>
+                  <span className="text-xs text-gray-500">
+                    {new Date(rating.created_at).toLocaleDateString()}
                   </span>
-                  {perm}
-                </li>
-              ))}
-            </ul>
-            <div className="mt-4 p-3 rounded-lg border border-amber-800/30 bg-amber-900/10">
-              <p className="text-xs text-amber-400">
-                🔒 Permissions are managed via Altana Smart Wallet and registered onchain. 
-                You can revoke access instantly at any time.
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
+                </div>
+                {rating.comment && (
+                  <p className="text-sm text-gray-400">{rating.comment}</p>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
-      {/* Hire Button (Fixed at bottom) */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gray-950/90 backdrop-blur-sm border-t border-gray-800">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <div className="text-xs text-gray-500">Price</div>
-            <div className="text-xl font-bold text-amber-400">
-              {agent.pricing_type === 'percentage' 
-                ? `${agent.pricing_value}% of yield` 
-                : agent.pricing_type === 'free' 
-                  ? 'Free' 
-                  : `$${agent.pricing_value}/month`}
-            </div>
+      {activeTab === 'terms' && (
+        <div className="space-y-3">
+          <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-3">
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Payment</p>
+            <p className="text-sm text-gray-300">
+              {agent.pricing_type === 'free' ? 'Free to use' :
+               agent.pricing_type === 'percentage' ? `${agent.pricing_value}% of yield generated` :
+               `$${agent.pricing_value} per month`}
+            </p>
           </div>
-          <div className="text-right">
-            <div className="text-xs text-gray-500">Seller</div>
-            <div className="text-sm text-gray-300">{agent.seller.name}</div>
+          <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-3">
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Wallet</p>
+            <p className="text-sm text-gray-300 font-mono">
+              {agent.wallet_address.slice(0, 6)}...{agent.wallet_address.slice(-4)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-3">
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Network</p>
+            <p className="text-sm text-gray-300">BNB Smart Chain</p>
           </div>
         </div>
-        
+      )}
+
+      {/* Hire button (fallback if MainButton not available) */}
+      {!mainButton && (
         <button
           onClick={handleHire}
-          disabled={isHiring}
-          className="w-full py-3 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold text-lg hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={hiring || !isAuthenticated}
+          className="w-full mt-6 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isHiring ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="animate-spin">⏳</span>
-              Processing...
-            </span>
-          ) : (
-            '🤝 Hire Agent'
-          )}
+          {hiring ? 'Processing...' : !isAuthenticated ? 'Login to Hire' : `Hire Agent`}
         </button>
-      </div>
+      )}
     </MiniAppShell>
   );
 }
