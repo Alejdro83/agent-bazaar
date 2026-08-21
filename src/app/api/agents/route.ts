@@ -92,6 +92,11 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
+    // Generate ERC-8004 identity
+    const { generateERC8004Metadata } = await import("@/lib/erc8004");
+    const walletAddress = body.wallet_address || "0x" + "0".repeat(40);
+    const erc8004 = generateERC8004Metadata(walletAddress, body.name, body.capabilities || [body.category]);
+
     // Validate required fields
     const required = ['name', 'description', 'category', 'pricing_type', 'pricing_value', 'wallet_address'];
     for (const field of required) {
@@ -116,7 +121,9 @@ export async function POST(request: NextRequest) {
         pricing_value: body.pricing_value,
         pricing_currency: body.pricing_currency || 'USD',
         wallet_address: body.wallet_address,
-        status: 'active',
+        status: "active",
+        erc8004_id: erc8004.erc8004_id,
+        erc8004_data: erc8004.erc8004_data,
         metadata: body.metadata || null,
       })
       .select()
