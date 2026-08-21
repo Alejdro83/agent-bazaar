@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 interface TelegramUser {
   id: number;
@@ -15,46 +15,20 @@ interface TelegramWebApp {
   initData: string;
   initDataUnsafe: {
     user?: TelegramUser;
-    chat_type?: string;
-    chat_instance?: string;
     start_param?: string;
   };
-  version: string;
-  platform: string;
   colorScheme: 'light' | 'dark';
-  themeParams: Record<string, string>;
-  isExpanded: boolean;
   viewportHeight: number;
   viewportStableHeight: number;
-  headerColor: string;
-  backgroundColor: string;
-  isClosingConfirmationEnabled: boolean;
   ready: () => void;
   expand: () => void;
   close: () => void;
-  setHeaderColor: (color: string) => void;
-  setBackgroundColor: (color: string) => void;
-  enableClosingConfirmation: () => void;
-  disableClosingConfirmation: () => void;
-  BackButton: {
-    isVisible: boolean;
-    show: () => void;
-    hide: () => void;
-    onClick: (callback: () => void) => void;
-    offClick: (callback: () => void) => void;
-  };
   MainButton: {
     text: string;
-    color: string;
-    textColor: string;
-    isVisible: boolean;
-    isActive: boolean;
-    isProgressVisible: boolean;
-    setText: (text: string) => void;
-    onClick: (callback: () => void) => void;
-    offClick: (callback: () => void) => void;
     show: () => void;
     hide: () => void;
+    onClick: (fn: () => void) => void;
+    offClick: (fn: () => void) => void;
     enable: () => void;
     disable: () => void;
     showProgress: (leaveActive?: boolean) => void;
@@ -64,6 +38,12 @@ interface TelegramWebApp {
     impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
     notificationOccurred: (type: 'error' | 'success' | 'warning') => void;
     selectionChanged: () => void;
+  };
+  BackButton: {
+    show: () => void;
+    hide: () => void;
+    onClick: (fn: () => void) => void;
+    offClick: (fn: () => void) => void;
   };
 }
 
@@ -75,44 +55,87 @@ declare global {
   }
 }
 
-export function useTelegram() {
+interface UseTelegramReturn {
+  webApp: TelegramWebApp | null;
+  user: TelegramUser | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  colorScheme: 'light' | 'dark';
+  viewportHeight: number;
+  haptic: TelegramWebApp['HapticFeedback'] | null;
+  mainButton: TelegramWebApp['MainButton'] | null;
+  backButton: TelegramWebApp['BackButton'] | null;
+  startParam: string | null;
+  close: () => void;
+  expand: () => void;
+}
+
+export function useTelegram(): UseTelegramReturn {
   const [webApp, setWebApp] = useState<TelegramWebApp | null>(null);
   const [user, setUser] = useState<TelegramUser | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
-    if (tg) {
-      setWebApp(tg);
-      setUser(tg.initDataUnsafe?.user || null);
-      tg.ready();
-      tg.expand();
+    if (!tg) {
       setIsLoading(false);
-    } else {
-      // Dev mode: simulate Telegram user
-      setUser({
-        id: 123456789,
-        first_name: 'Dev',
-        username: 'dev_user',
-      });
-      setIsLoading(false);
+      return;
     }
+
+    setWebApp(tg);
+    tg.ready();
+    tg.expand();
+
+    // Validate initData with our server
+    const validate = async () => {
+      try {
+        if (tg.initData) {
+          const res = await fetch('/api/auth/telegram', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ initData: tg.initData }),
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            setUser(data.user);
+            setIsAuthenticated(true);
+          } else {
+            // Fallback to unsafe data for display (not authenticated)
+            console.warn('InitData validation failed, using unsafe data');
+            setUser(tg.initDataUnsafe.user || null);
+          }
+        } else {
+          // Running outside Telegram (dev mode)
+          setUser(tg.initDataUnsafe.user || null);
+        }
+      } catch (error) {
+        console.error('Auth validation error:', error);
+        setUser(tg.initDataUnsafe.user || null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    validate();
   }, []);
 
-  const close = () => webApp?.close();
-  const expand = () => webApp?.expand();
-  const haptic = webApp?.HapticFeedback;
+  const close = useCallback(() => webApp?.close(), [webApp]);
+  const expand = useCallback(() => webApp?.expand(), [webApp]);
 
   return {
     webApp,
     user,
+    isAuthenticated,
     isLoading,
+    colorScheme: webApp?.colorScheme || 'dark',
+    viewportHeight: webApp?.viewportHeight || 0,
+    haptic: webApp?.HapticFeedback || null,
+    mainButton: webApp?.MainButton || null,
+    backButton: webApp?.BackButton || null,
+    startParam: webApp?.initDataUnsafe?.start_param || null,
     close,
     expand,
-    haptic,
-    colorScheme: webApp?.colorScheme || 'dark',
-    isExpanded: webApp?.isExpanded || true,
-    viewportHeight: webApp?.viewportHeight || 0,
-    startParam: webApp?.initDataUnsafe?.start_param,
   };
 }
