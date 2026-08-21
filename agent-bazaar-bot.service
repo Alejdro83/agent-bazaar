@@ -1,0 +1,17 @@
+[Unit]
+Description=Agent Bazaar Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=dungeonmaster
+WorkingDirectory=/home/dungeonmaster/.openclaw/workspace/agent-bazaar
+EnvironmentFile=/home/dungeonmaster/.openclaw/workspace/agent-bazaar/.env
+ExecStart=/usr/bin/node dist/bot/index.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

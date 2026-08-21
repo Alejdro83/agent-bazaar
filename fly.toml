@@ -1,0 +1,27 @@
+# fly.toml - Agent Bazaar Telegram Bot
+# Deploy: fly deploy
+
+app = "agent-bazaar-bot"
+primary_region = "iad"
+
+[build]
+
+[env]
+  NODE_ENV = "production"
+
+# Secrets set via: fly secrets set TELEGRAM_BOT_TOKEN=xxx SUPABASE_URL=xxx ...
+# fly secrets set TELEGRAM_BOT_TOKEN=... \
+#   NEXT_PUBLIC_SUPABASE_URL=... \
+#   SUPABASE_SERVICE_ROLE_KEY=...
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
