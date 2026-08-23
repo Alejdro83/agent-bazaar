@@ -1,5 +1,6 @@
 import { Bot, GrammyError, HttpError } from 'grammy';
 import { createServiceClient } from '../lib/supabase/service';
+import type { AgentCategory } from '../types/database';
 
 // Bot token from environment
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -186,17 +187,41 @@ bot.on('callback_query:data', async (ctx) => {
   
   if (data.startsWith('browse_')) {
     const category = data.replace('browse_', '');
-    // TODO: Query Supabase for agents in category
-    
+    if (!(category in CATEGORY_LABELS)) return;
+    const label = CATEGORY_LABELS[category];
+
     await ctx.answerCallbackQuery();
+
+    const supabase = createServiceClient();
+    const { data: agents, error } = await supabase
+      .from('agents')
+      .select('id, name, avg_rating, total_hires, pricing_type, pricing_value, description')
+      .eq('status', 'active')
+      .eq('category', category as AgentCategory)
+      .order('total_hires', { ascending: false })
+      .limit(3);
+
+    if (error || !agents || agents.length === 0) {
+      await ctx.reply(
+        `📂 *${label} Agents*\n\nNo agents in this category yet. Open the marketplace to check back later:`,
+        { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🛍️ Open Marketplace', web_app: { url: MINI_APP_URL } }]] } }
+      );
+      return;
+    }
+
+    const lines = agents.map((a, i) =>
+      `${i + 1}. *${a.name}*\n` +
+      `   ⭐ ${a.avg_rating.toFixed(1)} (${a.total_hires} hires) | 💰 ${formatPricing(a.pricing_type, a.pricing_value)}\n` +
+      `   ${a.description.slice(0, 90)}${a.description.length > 90 ? '…' : ''}`
+    );
+
     await ctx.reply(
-      `📂 *${category.charAt(0).toUpperCase() + category.slice(1)} Agents*\n\n` +
-      `Open the marketplace to browse all ${category} agents with filters and search:`,
+      `📂 *${label} Agents:*\n\n${lines.join('\n\n')}\n\nOpen the marketplace to hire:`,
       {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
-            [{ text: `🛍️ Browse ${category} Agents`, web_app: { url: `${MINI_APP_URL}?category=${category}` } }],
+            [{ text: `🛍️ Browse ${label} Agents`, web_app: { url: `${MINI_APP_URL}?category=${category}` } }],
           ],
         },
       }

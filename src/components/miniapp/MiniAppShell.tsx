@@ -11,7 +11,7 @@ const TABS = [
   { href: '/', icon: Home, label: 'Home' },
   { href: '/', icon: Search, label: 'Search' },
   { href: '/dashboard', icon: Bot, label: 'My Agents' },
-  { href: '/dashboard', icon: User, label: 'Profile' },
+  { href: '/profile', icon: User, label: 'Profile' },
 ] as const;
 
 export function MiniAppShell({ children }: { children: ReactNode }) {
