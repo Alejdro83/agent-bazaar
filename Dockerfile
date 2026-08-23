@@ -1,19 +1,18 @@
 FROM node:20-slim AS base
 
-# Install dependencies only
-FROM base AS deps
-WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
-
-# Build
+# Build — needs devDependencies (typescript, tsx) to run `tsc`, so this
+# stage does a full `npm ci`, never `--omit=dev`. (The previous version
+# reused an --omit=dev install here, which meant `tsc` itself was missing:
+# `npm run bot:build` failed with "tsc: not found".)
 FROM base AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY package.json package-lock.json* ./
+RUN npm ci
+COPY tsconfig.bot.json ./
+COPY src ./src
 RUN npm run bot:build
 
-# Production
+# Runtime — production-only dependencies, plus the compiled bot output.
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
@@ -22,11 +21,11 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 bot && \
     adduser --system --uid 1001 bot
 
-COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
-COPY package.json ./
 
 USER bot
-EXPOSE 3000
 
+# Long-polling bot — no HTTP server, so no EXPOSE / health-check port.
 CMD ["node", "dist/bot/index.js"]
