@@ -12,6 +12,7 @@
  */
 
 import crypto from 'crypto';
+import type { Json } from '@/types/database';
 
 export interface ERC8004Identity {
   agent_id: string;        // Onchain agent ID (mock: deterministic hash)
@@ -85,10 +86,10 @@ export function generateERC8004Metadata(
   sellerAddress: string,
   agentName: string,
   capabilities: string[]
-): { erc8004_id: string; erc8004_data: Record<string, unknown> } {
+): { erc8004_id: string; erc8004_data: Json } {
   const identity = mockRegisterAgent(sellerAddress, agentName, capabilities);
   return {
     erc8004_id: identity.agent_id,
-    erc8004_data: identity as unknown as Record<string, unknown>,
+    erc8004_data: JSON.parse(JSON.stringify(identity)) as Json,
   };
 }

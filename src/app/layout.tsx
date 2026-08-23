@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
+import Script from 'next/script';
+import { WalletProvider } from '@/components/providers/WalletProvider';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -30,7 +32,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${inter.className} antialiased`}>
-        {children}
+        <Script
+          src="https://telegram.org/js/telegram-web-app.js"
+          strategy="beforeInteractive"
+        />
+        <WalletProvider>{children}</WalletProvider>
       </body>
     </html>
   );

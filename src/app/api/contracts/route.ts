@@ -1,33 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
+import { identifyRequester } from '@/lib/auth/identify';
 
 /**
+ * GET /api/contracts?role=buyer|seller — List the caller's contracts (dashboard)
  * POST /api/contracts — Create a new contract (hire an agent)
  * Mock x402 payment flow for hackathon demo
  */
-export async function POST(request: NextRequest) {
-  try {
-    const supabase = createServerClient();
 
-    // Validate Telegram auth
-    const initData = request.headers.get('x-telegram-init-data');
-    if (!initData) {
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = createServiceClient();
+    const requester = identifyRequester(request);
+    if (!requester) {
       return NextResponse.json({ error: 'Auth required' }, { status: 401 });
     }
 
-    const { validateInitData } = await import('@/lib/telegram/validate');
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    if (!botToken) {
-      return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
+    const role = request.nextUrl.searchParams.get('role') === 'seller' ? 'seller' : 'buyer';
+    const column = role === 'seller' ? 'seller_id' : 'buyer_id';
+
+    const { data: contracts, error } = await supabase
+      .from('contracts')
+      .select('id, agent_id, buyer_id, seller_id, status, pricing_type, pricing_value, pricing_currency, payment_tx_hash, started_at, expires_at, created_at')
+      .eq(column, requester.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Supabase error:', error);
+      return NextResponse.json({ error: 'Failed to fetch contracts' }, { status: 500 });
     }
 
-    const authResult = validateInitData(initData, botToken);
-    if (!authResult.valid || !authResult.user) {
-      return NextResponse.json({ error: 'Invalid auth' }, { status: 401 });
+    return NextResponse.json({ contracts: contracts || [] });
+  } catch (error) {
+    console.error('API error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = createServiceClient();
+
+    const requester = identifyRequester(request);
+    if (!requester) {
+      return NextResponse.json({ error: 'Auth required' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { agent_id, pricing_type, pricing_value, pricing_currency } = body;
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+    const { agent_id } = body;
 
     if (!agent_id) {
       return NextResponse.json({ error: 'Missing agent_id' }, { status: 400 });
@@ -36,13 +59,23 @@ export async function POST(request: NextRequest) {
     // Fetch agent to get seller_id and wallet
     const { data: agent, error: agentError } = await supabase
       .from('agents')
-      .select('id, seller_id, wallet_address, pricing_type, pricing_value, pricing_currency')
+      .select('id, seller_id, wallet_address, pricing_type, pricing_value, pricing_currency, source')
       .eq('id', agent_id)
       .eq('status', 'active')
       .single();
 
     if (agentError || !agent) {
       return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
+    }
+
+    // Agents indexed from 8004scan are real third-party identities we don't
+    // control the execution/payment endpoint for — browse-only, not hireable
+    // through our (mock) contract flow. See useIdentity.ts / plan Fase 1.
+    if (agent.source !== 'user') {
+      return NextResponse.json(
+        { error: 'This agent is not hireable through Agent Bazaar — view it on 8004scan instead.' },
+        { status: 400 }
+      );
     }
 
     // Mock x402 payment — in production this would:
@@ -59,7 +92,7 @@ export async function POST(request: NextRequest) {
       .from('contracts')
       .insert({
         agent_id: agent.id,
-        buyer_id: String(authResult.user.id),
+        buyer_id: requester.id,
         seller_id: agent.seller_id,
         status: 'active',
         pricing_type: agent.pricing_type,

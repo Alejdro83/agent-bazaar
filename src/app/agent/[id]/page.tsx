@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useTelegram } from '@/hooks/useTelegram';
+import { useIdentity } from '@/hooks/useIdentity';
 import { MiniAppShell } from '@/components/miniapp/MiniAppShell';
 
 interface Agent {
@@ -19,9 +21,14 @@ interface Agent {
   avatar_url: string | null;
   total_hires: number;
   avg_rating: number;
+  source: 'user' | '8004scan';
+  chain_id: number | null;
+  is_testnet: boolean | null;
+  onchain_reputation: number | null;
+  external_agent_id: string | null;
+  erc8004_id: string | null;
   total_revenue: number;
   created_at: string;
-  metadata: Record<string, unknown> | null;
 }
 
 interface Rating {
@@ -34,13 +41,45 @@ interface Rating {
 
 export default function AgentDetailPage() {
   const params = useParams();
-  const { haptic, mainButton, user, isAuthenticated } = useTelegram();
+  const { haptic, mainButton } = useTelegram();
+  const { identity, isAuthenticated } = useIdentity();
   const [agent, setAgent] = useState<Agent | null>(null);
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'about' | 'reviews' | 'terms'>('about');
   const [hiring, setHiring] = useState(false);
+  const [hireMessage, setHireMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [ratingScore, setRatingScore] = useState(5);
+  const [ratingComment, setRatingComment] = useState('');
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const [ratingMessage, setRatingMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleSubmitRating = async () => {
+    if (!agent || !identity) return;
+    setSubmittingRating(true);
+    setRatingMessage(null);
+
+    try {
+      const res = await fetch('/api/ratings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...identity.authHeader },
+        body: JSON.stringify({ agent_id: agent.id, score: ratingScore, comment: ratingComment || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to submit rating');
+
+      haptic?.notificationOccurred('success');
+      setRatingMessage({ type: 'success', text: 'Thanks for the review!' });
+      setRatings((prev) => [data.rating, ...prev]);
+      setRatingComment('');
+    } catch (err) {
+      haptic?.notificationOccurred('error');
+      setRatingMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to submit rating' });
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
 
   useEffect(() => {
     const fetchAgent = async () => {
@@ -59,24 +98,12 @@ export default function AgentDetailPage() {
     fetchAgent();
   }, [params.id]);
 
-  // Setup Main Button for hire
-  useEffect(() => {
-    if (!agent || !mainButton) return;
-
-    mainButton.text = `Hire — ${agent.pricing_type === 'free' ? 'Free' : agent.pricing_type === 'percentage' ? `${agent.pricing_value}% yield` : `$${agent.pricing_value}/mo`}`;
-    mainButton.show();
-    mainButton.onClick(() => handleHire());
-
-    return () => {
-      mainButton.hide();
-    };
-  }, [agent, mainButton]);
-
-  const handleHire = async () => {
-    if (!agent || !user) return;
+  const handleHire = useCallback(async () => {
+    if (!agent || !identity) return;
 
     haptic?.impactOccurred('medium');
     setHiring(true);
+    setHireMessage(null);
 
     try {
       // Mock x402 payment flow
@@ -85,7 +112,7 @@ export default function AgentDetailPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-telegram-init-data': window.Telegram?.WebApp?.initData || '',
+          ...identity.authHeader,
         },
         body: JSON.stringify({
           agent_id: agent.id,
@@ -94,18 +121,41 @@ export default function AgentDetailPage() {
           pricing_currency: agent.pricing_currency,
         }),
       });
+      const data = await res.json();
 
-      if (!res.ok) throw new Error('Failed to create contract');
+      if (!res.ok) throw new Error(data.error || 'Failed to create contract');
 
       haptic?.notificationOccurred('success');
-      alert('Agent hired successfully! (Demo mode)');
+      setHireMessage({ type: 'success', text: 'Agent hired! (demo payment)' });
     } catch (err) {
       haptic?.notificationOccurred('error');
-      alert('Failed to hire agent. Please try again.');
+      setHireMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to hire agent' });
     } finally {
       setHiring(false);
     }
-  };
+  }, [agent, identity, haptic]);
+
+  // Setup Main Button for hire. handleHire is a ref so the onClick/offClick
+  // pair below always target the SAME function identity — registering a new
+  // closure each render without a matching offClick was leaking handlers
+  // (each stale one still fired), causing duplicate contracts per click.
+  const handleHireRef = useRef(handleHire);
+  handleHireRef.current = handleHire;
+
+  useEffect(() => {
+    if (!agent || !mainButton || agent.source !== 'user') return;
+
+    const onClick = () => handleHireRef.current();
+
+    mainButton.text = `Hire — ${agent.pricing_type === 'free' ? 'Free' : agent.pricing_type === 'percentage' ? `${agent.pricing_value}% yield` : `$${agent.pricing_value}/mo`}`;
+    mainButton.show();
+    mainButton.onClick(onClick);
+
+    return () => {
+      mainButton.offClick(onClick);
+      mainButton.hide();
+    };
+  }, [agent, mainButton]);
 
   if (loading) {
     return (
@@ -122,26 +172,25 @@ export default function AgentDetailPage() {
       <MiniAppShell>
         <div className="text-center py-12">
           <p className="text-red-400 text-lg">{error || 'Agent not found'}</p>
-          <a href="/" className="text-amber-400 hover:text-amber-300 mt-4 inline-block">
+          <Link href="/" className="text-amber-400 hover:text-amber-300 mt-4 inline-block">
             ← Back to Browse
-          </a>
+          </Link>
         </div>
       </MiniAppShell>
     );
   }
 
   const categoryIcon =
-    agent.category === 'yield' ? '🌾' :
-    agent.category === 'trading' ? '📈' :
-    agent.category === 'defi' ? '🏦' :
-    agent.category === 'monitoring' ? '👁️' : '📊';
+    agent.category === 'rebalancing' ? '⚖️' :
+    agent.category === 'grid_trading' ? '📈' :
+    agent.category === 'yield_optimisation' ? '🌾' : '🛡️';
 
   return (
     <MiniAppShell>
       {/* Back button */}
-      <a href="/" className="text-amber-400 hover:text-amber-300 text-sm mb-4 inline-block">
+      <Link href="/" className="text-amber-400 hover:text-amber-300 text-sm mb-4 inline-block">
         ← Back
-      </a>
+      </Link>
 
       {/* Header */}
       <div className="flex items-start gap-4 mb-6">
@@ -234,6 +283,42 @@ export default function AgentDetailPage() {
               </div>
             ))
           )}
+
+          {agent.source === 'user' && isAuthenticated && (
+            <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-3 mt-4">
+              <p className="text-sm font-medium text-white mb-2">Rate this agent</p>
+              <div className="flex gap-1 mb-2">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setRatingScore(n)}
+                    className={`text-lg ${n <= ratingScore ? 'text-amber-400' : 'text-gray-700'}`}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={ratingComment}
+                onChange={(e) => setRatingComment(e.target.value)}
+                placeholder="Optional comment"
+                rows={2}
+                className="w-full rounded-lg border border-gray-800 bg-gray-900/50 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-amber-500/50 focus:outline-none resize-none mb-2"
+              />
+              <button
+                onClick={handleSubmitRating}
+                disabled={submittingRating}
+                className="w-full py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-black text-sm font-semibold disabled:opacity-50"
+              >
+                {submittingRating ? 'Submitting...' : 'Submit review'}
+              </button>
+              {ratingMessage && (
+                <p className={`text-xs mt-2 ${ratingMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                  {ratingMessage.text}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -255,20 +340,52 @@ export default function AgentDetailPage() {
           </div>
           <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-3">
             <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Network</p>
-            <p className="text-sm text-gray-300">BNB Smart Chain</p>
+            <p className="text-sm text-gray-300">
+              BNB Smart Chain {agent.chain_id ? (agent.is_testnet ? '(Testnet)' : '(Mainnet)') : ''}
+            </p>
           </div>
+          {agent.source === '8004scan' && (
+            <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-3">
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Onchain Reputation</p>
+              <p className="text-sm text-gray-300">
+                {agent.onchain_reputation !== null ? agent.onchain_reputation.toFixed(2) : '—'}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Hire button (fallback if MainButton not available) */}
-      {!mainButton && (
-        <button
-          onClick={handleHire}
-          disabled={hiring || !isAuthenticated}
-          className="w-full mt-6 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+      {hireMessage && (
+        <div
+          className={`mt-4 p-3 rounded-xl border text-sm ${
+            hireMessage.type === 'success'
+              ? 'border-green-800/30 bg-green-900/10 text-green-400'
+              : 'border-red-800/30 bg-red-900/10 text-red-400'
+          }`}
         >
-          {hiring ? 'Processing...' : !isAuthenticated ? 'Login to Hire' : `Hire Agent`}
-        </button>
+          {hireMessage.text}
+        </div>
+      )}
+
+      {agent.source === '8004scan' ? (
+        <a
+          href={`https://8004scan.io/agents/${agent.external_agent_id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block w-full mt-6 rounded-xl border border-gray-700 py-3 text-center text-white font-semibold hover:bg-gray-900/50 transition-colors"
+        >
+          View on 8004scan ↗
+        </a>
+      ) : (
+        !mainButton && (
+          <button
+            onClick={handleHire}
+            disabled={hiring || !isAuthenticated}
+            className="w-full mt-6 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {hiring ? 'Processing...' : !isAuthenticated ? 'Connect wallet to hire' : `Hire Agent`}
+          </button>
+        )
       )}
     </MiniAppShell>
   );

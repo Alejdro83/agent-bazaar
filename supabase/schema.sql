@@ -5,10 +5,12 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Create custom types
-CREATE TYPE agent_category AS ENUM ('yield', 'trading', 'monitoring', 'defi', 'analytics', 'other');
+-- Categories match BNB Chain "Build the Era" hackathon's required agent categories
+CREATE TYPE agent_category AS ENUM ('rebalancing', 'grid_trading', 'yield_optimisation', 'health_factor');
 CREATE TYPE agent_status AS ENUM ('draft', 'active', 'paused', 'archived');
 CREATE TYPE contract_status AS ENUM ('pending', 'active', 'completed', 'cancelled', 'expired');
 CREATE TYPE pricing_type AS ENUM ('free', 'fixed', 'percentage');
+CREATE TYPE agent_source AS ENUM ('user', '8004scan');
 
 -- Agents table
 CREATE TABLE agents (
@@ -31,7 +33,21 @@ CREATE TABLE agents (
   avatar_url TEXT,
   total_hires INTEGER NOT NULL DEFAULT 0,
   avg_rating NUMERIC NOT NULL DEFAULT 0,
-  total_revenue NUMERIC NOT NULL DEFAULT 0
+  total_revenue NUMERIC NOT NULL DEFAULT 0,
+  -- Provenance: 'user' = listed via our wizard (hireable), '8004scan' = indexed real
+  -- ERC-8004 identity from BSC (browse-only, links out to 8004scan/BscScan)
+  source agent_source NOT NULL DEFAULT 'user',
+  chain_id INTEGER,
+  is_testnet BOOLEAN,
+  external_agent_id TEXT UNIQUE,
+  onchain_reputation NUMERIC,
+  -- Generated column for full-text search — lets the API pass user input as
+  -- a plain tsquery *value* (via .textSearch()) instead of interpolating it
+  -- into PostgREST's filter *syntax* (the old `.or(ilike...)` approach let a
+  -- search string like "x,status.eq.draft" inject extra filter conditions).
+  search_vector TSVECTOR GENERATED ALWAYS AS (
+    to_tsvector('english', name || ' ' || description)
+  ) STORED
 );
 
 -- Contracts table
@@ -57,7 +73,7 @@ CREATE TABLE contracts (
 CREATE TABLE ratings (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  contract_id UUID NOT NULL REFERENCES contracts(id) ON DELETE CASCADE,
+  contract_id UUID NOT NULL UNIQUE REFERENCES contracts(id) ON DELETE CASCADE,
   agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
   rater_id TEXT NOT NULL,
   score INTEGER NOT NULL CHECK (score >= 1 AND score <= 5),
@@ -78,6 +94,7 @@ CREATE TABLE search_embeddings (
 CREATE INDEX idx_agents_seller ON agents(seller_id);
 CREATE INDEX idx_agents_category ON agents(category);
 CREATE INDEX idx_agents_status ON agents(status);
+CREATE INDEX idx_agents_search_vector ON agents USING GIN(search_vector);
 CREATE INDEX idx_contracts_agent ON contracts(agent_id);
 CREATE INDEX idx_contracts_buyer ON contracts(buyer_id);
 CREATE INDEX idx_contracts_seller ON contracts(seller_id);
@@ -166,22 +183,44 @@ CREATE TRIGGER contracts_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at();
 
--- RLS (Row Level Security) - Enable in production
+-- RLS (Row Level Security)
+--
+-- Telegram Mini App auth is NOT Supabase Auth — there is no auth.uid() to
+-- key policies on. So the model here is deliberately simple:
+--   - Our own Next.js API routes are the only trusted writer. They connect
+--     with SUPABASE_SERVICE_ROLE_KEY (see src/lib/supabase/service.ts),
+--     which bypasses RLS entirely, and enforce authorization themselves by
+--     validating Telegram initData and checking seller_id ownership.
+--   - The anon key (public by design, shipped to the browser as
+--     NEXT_PUBLIC_SUPABASE_ANON_KEY) gets READ-ONLY access to what's already
+--     public. No INSERT/UPDATE/DELETE policy exists for anon on any table,
+--     which means those are denied by default — even if the anon key leaks
+--     or someone bypasses our API and hits PostgREST directly, the worst
+--     case is reading data that's already public, never writing.
 ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE contracts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE search_embeddings ENABLE ROW LEVEL SECURITY;
 
--- Policies (basic - customize for production)
-CREATE POLICY "Agents are viewable by everyone" ON agents FOR SELECT USING (true);
-CREATE POLICY "Users can insert their own agents" ON agents FOR INSERT WITH CHECK (true);
-CREATE POLICY "Users can update their own agents" ON agents FOR UPDATE USING (true);
+CREATE POLICY "anon_select_active_agents" ON agents
+  FOR SELECT TO anon USING (status = 'active');
 
-CREATE POLICY "Contracts viewable by parties" ON contracts FOR SELECT USING (true);
-CREATE POLICY "Users can insert contracts" ON contracts FOR INSERT WITH CHECK (true);
+CREATE POLICY "anon_select_ratings" ON ratings
+  FOR SELECT TO anon USING (true);
 
-CREATE POLICY "Ratings viewable by everyone" ON ratings FOR SELECT USING (true);
-CREATE POLICY "Users can insert ratings" ON ratings FOR INSERT WITH CHECK (true);
+CREATE POLICY "anon_select_embeddings" ON search_embeddings
+  FOR SELECT TO anon USING (true);
 
-CREATE POLICY "Embeddings viewable by everyone" ON search_embeddings FOR SELECT USING (true);
-CREATE POLICY "System can manage embeddings" ON search_embeddings FOR ALL USING (true);
+-- No anon policy on `contracts` (buyer/seller identities, payment hashes) —
+-- reads and writes both denied by default for the public key.
+
+-- Baseline privileges. RLS only ever *restricts* what a GRANT already
+-- allows — without these, Postgres denies before RLS is even evaluated.
+-- service_role has the BYPASSRLS role attribute (set by Supabase at
+-- project creation) so it still needs the table-level GRANT, but RLS
+-- policies don't apply to it.
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT SELECT ON agents, ratings, search_embeddings TO anon;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO service_role;

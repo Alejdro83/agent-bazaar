@@ -1,16 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAccount } from 'wagmi';
 import { useTelegram } from '@/hooks/useTelegram';
+import { useIdentity } from '@/hooks/useIdentity';
 import { MiniAppShell } from '@/components/miniapp/MiniAppShell';
 
 const CATEGORIES = [
-  { id: 'yield', label: 'Yield', icon: '🌾', description: 'Harvest, restake, optimize APY' },
-  { id: 'trading', label: 'Trading', icon: '📈', description: 'Grid trading, DCA, arbitrage' },
-  { id: 'defi', label: 'DeFi', icon: '🏦', description: 'Lending, borrowing, liquidation protection' },
-  { id: 'monitoring', label: 'Monitoring', icon: '👁️', description: 'Alerts, tracking, notifications' },
-  { id: 'analytics', label: 'Analytics', icon: '📊', description: 'Data analysis, reporting' },
-  { id: 'other', label: 'Other', icon: '🤖', description: 'Custom agents' },
+  { id: 'rebalancing', label: 'Rebalancing', icon: '⚖️', description: 'Portfolio & LP range rebalancing' },
+  { id: 'grid_trading', label: 'Grid Trading', icon: '📈', description: 'Grid strategies, DCA-grid' },
+  { id: 'yield_optimisation', label: 'Yield', icon: '🌾', description: 'Harvest, restake, optimize APY' },
+  { id: 'health_factor', label: 'Health Factor', icon: '🛡️', description: 'Liquidation risk monitoring' },
 ];
 
 const PRICING_TYPES = [
@@ -20,7 +21,10 @@ const PRICING_TYPES = [
 ];
 
 export default function ListAgentPage() {
-  const { haptic, user } = useTelegram();
+  const { haptic } = useTelegram();
+  const { identity } = useIdentity();
+  const { address: connectedWallet } = useAccount();
+  const router = useRouter();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: '',
@@ -31,6 +35,15 @@ export default function ListAgentPage() {
     wallet_address: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Prefill (still editable) from the connected wallet, if any.
+  useEffect(() => {
+    if (connectedWallet && !formData.wallet_address) {
+      setFormData((prev) => ({ ...prev, wallet_address: connectedWallet }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectedWallet]);
 
   const updateForm = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -47,21 +60,45 @@ export default function ListAgentPage() {
   };
 
   const handleSubmit = async () => {
+    if (!identity) {
+      setError('Connect your wallet (or open this from Telegram) before listing an agent.');
+      return;
+    }
+
     haptic?.impactOccurred('heavy');
     setIsSubmitting(true);
-    
-    // TODO: Submit to Supabase
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    haptic?.notificationOccurred('success');
-    setIsSubmitting(false);
-    
-    // Send data back to bot
-    if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.sendData(JSON.stringify({
-        action: 'agent_listed',
-        agent_name: formData.name,
-      }));
+    setError(null);
+
+    try {
+      const res = await fetch('/api/agents', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...identity.authHeader,
+        },
+        body: JSON.stringify(formData),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to list agent');
+      }
+
+      haptic?.notificationOccurred('success');
+
+      // Send data back to bot, if opened from one (best-effort — no-op on web)
+      if (window.Telegram?.WebApp) {
+        window.Telegram.WebApp.sendData(JSON.stringify({
+          action: 'agent_listed',
+          agent_name: formData.name,
+        }));
+      }
+
+      router.push(`/agent/${data.agent.id}`);
+    } catch (err) {
+      haptic?.notificationOccurred('error');
+      setError(err instanceof Error ? err.message : 'Failed to list agent');
+      setIsSubmitting(false);
     }
   };
 
@@ -256,15 +293,25 @@ export default function ListAgentPage() {
               <div className="flex justify-between">
                 <span className="text-gray-500">Pricing:</span>
                 <span className="text-white">
-                  {formData.pricing_type === 'free' 
-                    ? 'Free' 
-                    : formData.pricing_type === 'fixed' 
-                      ? `$${formData.pricing_value}/mo` 
+                  {formData.pricing_type === 'free'
+                    ? 'Free'
+                    : formData.pricing_type === 'fixed'
+                      ? `$${formData.pricing_value}/mo`
                       : `${formData.pricing_value}% yield`}
                 </span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Wallet:</span>
+                <span className="text-white font-mono text-xs">{formData.wallet_address || '-'}</span>
+              </div>
             </div>
           </div>
+
+          {error && (
+            <div className="p-3 rounded-xl border border-red-800/30 bg-red-900/10 text-sm text-red-400">
+              {error}
+            </div>
+          )}
         </div>
       )}
 

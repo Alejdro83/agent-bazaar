@@ -2,49 +2,18 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 /**
- * Middleware for Agent Bazaar
+ * Middleware for Agent Bazaar.
  *
- * Auth strategy:
- * - Telegram Mini App: initData validated via /api/auth/telegram (client-side flow)
- * - Protected routes (/list, /dashboard) require valid Telegram initData
- * - API routes are auth'd per-request via initData header
- *
- * Since Telegram auth is client-side (initData passed from WebApp SDK),
- * middleware does lightweight checks only. Full validation happens in API routes.
+ * Auth is per-request in the route handlers themselves (see
+ * src/lib/auth/identify.ts), which accept either Telegram initData (HMAC
+ * validated, needs TELEGRAM_BOT_TOKEN) or a wallet address — neither of
+ * which the Edge middleware runtime can validate on its own. A previous
+ * version of this file did a shallow "is *a* x-telegram-init-data header
+ * present" check here, which was redundant with the route-level check and
+ * actively broke the wallet-identity path (it only recognized one of the
+ * two valid auth methods). Left as a passthrough / extension point.
  */
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // Protected page routes — require Telegram auth
-  const protectedPaths = ['/list', '/dashboard', '/profile'];
-  const isProtectedPage = protectedPaths.some((path) =>
-    pathname.startsWith(path)
-  );
-
-  if (isProtectedPage) {
-    // For pages, we rely on client-side auth check via useTelegram hook
-    // The hook validates initData with /api/auth/telegram on mount
-    // No server-side session to check here — Telegram auth is stateless
-  }
-
-  // Protected API routes — require valid initData header
-  const protectedApiPaths = ['/api/agents']; // POST/PUT/DELETE require auth
-  const isProtectedApi =
-    protectedApiPaths.some((path) => pathname.startsWith(path)) &&
-    ['POST', 'PUT', 'DELETE'].includes(request.method);
-
-  if (isProtectedApi) {
-    const initData = request.headers.get('x-telegram-init-data');
-    if (!initData) {
-      return NextResponse.json(
-        { error: 'Missing Telegram auth. Send x-telegram-init-data header.' },
-        { status: 401 }
-      );
-    }
-    // Actual validation happens in the API route handler
-    // (needs botToken from env, not available in edge middleware)
-  }
-
+export async function middleware(_request: NextRequest) {
   return NextResponse.next();
 }
 

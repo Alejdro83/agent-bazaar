@@ -31,6 +31,12 @@ export interface Database {
           total_hires: number;
           avg_rating: number;
           total_revenue: number;
+          source: AgentSource;
+          chain_id: number | null;
+          is_testnet: boolean | null;
+          external_agent_id: string | null;
+          onchain_reputation: number | null;
+          search_vector: string | null;
         };
         Insert: {
           id?: string;
@@ -53,6 +59,11 @@ export interface Database {
           total_hires?: number;
           avg_rating?: number;
           total_revenue?: number;
+          source?: AgentSource;
+          chain_id?: number | null;
+          is_testnet?: boolean | null;
+          external_agent_id?: string | null;
+          onchain_reputation?: number | null;
         };
         Update: {
           id?: string;
@@ -75,7 +86,13 @@ export interface Database {
           total_hires?: number;
           avg_rating?: number;
           total_revenue?: number;
+          source?: AgentSource;
+          chain_id?: number | null;
+          is_testnet?: boolean | null;
+          external_agent_id?: string | null;
+          onchain_reputation?: number | null;
         };
+        Relationships: [];
       };
       contracts: {
         Row: {
@@ -129,6 +146,7 @@ export interface Database {
           expires_at?: string | null;
           metadata?: Json | null;
         };
+        Relationships: [];
       };
       ratings: {
         Row: {
@@ -161,6 +179,7 @@ export interface Database {
           comment?: string | null;
           metadata?: Json | null;
         };
+        Relationships: [];
       };
       search_embeddings: {
         Row: {
@@ -184,27 +203,11 @@ export interface Database {
           embedding?: number[];
           content?: string;
         };
+        Relationships: [];
       };
     };
     Views: {
-      agent_search: {
-        Row: {
-          id: string;
-          name: string;
-          description: string;
-          category: string;
-          subcategory: string | null;
-          pricing_type: string;
-          pricing_value: number;
-          pricing_currency: string;
-          status: string;
-          seller_id: string;
-          total_hires: number;
-          avg_rating: number;
-          avatar_url: string | null;
-          created_at: string;
-        };
-      };
+      [_ in never]: never;
     };
     Functions: {
       search_agents: {
@@ -232,15 +235,16 @@ export interface Database {
         }[];
       };
       update_agent_stats: {
-        Args: { agent_id: string };
+        Args: { p_agent_id: string };
         Returns: void;
       };
     };
     Enums: {
-      agent_category: 'yield' | 'trading' | 'monitoring' | 'defi' | 'analytics' | 'other';
+      agent_category: 'rebalancing' | 'grid_trading' | 'yield_optimisation' | 'health_factor';
       agent_status: 'draft' | 'active' | 'paused' | 'archived';
       contract_status: 'pending' | 'active' | 'completed' | 'cancelled' | 'expired';
       pricing_type: 'free' | 'fixed' | 'percentage';
+      agent_source: 'user' | '8004scan';
     };
   };
 }
@@ -249,6 +253,7 @@ export type AgentCategory = Database['public']['Enums']['agent_category'];
 export type AgentStatus = Database['public']['Enums']['agent_status'];
 export type ContractStatus = Database['public']['Enums']['contract_status'];
 export type PricingType = Database['public']['Enums']['pricing_type'];
+export type AgentSource = Database['public']['Enums']['agent_source'];
 
 export type Agent = Database['public']['Tables']['agents']['Row'];
 export type AgentInsert = Database['public']['Tables']['agents']['Insert'];

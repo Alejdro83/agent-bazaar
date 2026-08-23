@@ -1,9 +1,22 @@
 import { Bot, GrammyError, HttpError } from 'grammy';
-import { hydrate } from '@grammyjs/hydrate';
+import { createServiceClient } from '../lib/supabase/service';
 
 // Bot token from environment
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const MINI_APP_URL = process.env.NEXT_PUBLIC_TELEGRAM_MINI_APP_URL || 'https://agent-bazaar.vercel.app';
+
+const CATEGORY_LABELS: Record<string, string> = {
+  rebalancing: 'Rebalancing',
+  grid_trading: 'Grid Trading',
+  yield_optimisation: 'Yield Optimisation',
+  health_factor: 'Health Factor',
+};
+
+function formatPricing(pricingType: string, pricingValue: number): string {
+  if (pricingType === 'free') return 'Free';
+  if (pricingType === 'percentage') return `${pricingValue}% yield`;
+  return `$${pricingValue}/mo`;
+}
 
 if (!BOT_TOKEN) {
   console.error('❌ TELEGRAM_BOT_TOKEN is required');
@@ -12,9 +25,6 @@ if (!BOT_TOKEN) {
 
 // Create bot instance
 const bot = new Bot(BOT_TOKEN);
-
-// Use hydrate for reply methods
-bot.use(hydrate());
 
 // /start command — Welcome + open Mini App
 bot.command('start', async (ctx) => {
@@ -53,11 +63,10 @@ bot.command('browse', async (ctx) => {
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🌾 Yield Agents', callback_data: 'browse_yield' }],
-          [{ text: '📈 Trading Agents', callback_data: 'browse_trading' }],
-          [{ text: '🏦 DeFi Agents', callback_data: 'browse_defi' }],
-          [{ text: '👁️ Monitoring Agents', callback_data: 'browse_monitoring' }],
-          [{ text: '📊 Analytics Agents', callback_data: 'browse_analytics' }],
+          [{ text: '⚖️ Rebalancing Agents', callback_data: 'browse_rebalancing' }],
+          [{ text: '📈 Grid Trading Agents', callback_data: 'browse_grid_trading' }],
+          [{ text: '🌾 Yield Agents', callback_data: 'browse_yield_optimisation' }],
+          [{ text: '🛡️ Health Factor Agents', callback_data: 'browse_health_factor' }],
           [{ text: '🛍️ Open Full Marketplace', web_app: { url: MINI_APP_URL } }],
         ],
       },
@@ -77,22 +86,36 @@ bot.command('search', async (ctx) => {
     return;
   }
 
-  // TODO: Query Supabase with semantic search
+  const supabase = createServiceClient();
+  const { data: agents, error } = await supabase
+    .from('agents')
+    .select('id, name, avg_rating, total_hires, pricing_type, pricing_value, description')
+    .eq('status', 'active')
+    .textSearch('search_vector', query, { type: 'websearch' })
+    .order('total_hires', { ascending: false })
+    .limit(3);
+
+  if (error || !agents || agents.length === 0) {
+    await ctx.reply(
+      `🔍 No agents found for "${query}". Try a different keyword or open the full marketplace:`,
+      { reply_markup: { inline_keyboard: [[{ text: '🛍️ Open Marketplace', web_app: { url: MINI_APP_URL } }]] } }
+    );
+    return;
+  }
+
+  const lines = agents.map((a, i) =>
+    `${i + 1}. *${a.name}*\n` +
+    `   ⭐ ${a.avg_rating.toFixed(1)} (${a.total_hires} hires) | 💰 ${formatPricing(a.pricing_type, a.pricing_value)}\n` +
+    `   ${a.description.slice(0, 90)}${a.description.length > 90 ? '…' : ''}`
+  );
+
   await ctx.reply(
-    `🔍 Searching for "${query}"...\n\n` +
-    `*Top Results:*\n\n` +
-    `1. 🌾 *BeefyHarvester v2*\n` +
-    `   ⭐ 4.8 (340 hires) | 💰 0.5% yield\n` +
-    `   Auto-harvest and restake across Venus, PancakeSwap, Beefy\n\n` +
-    `2. 📈 *GridBot Pro*\n` +
-    `   ⭐ 4.5 (128 hires) | 💰 $25/mo\n` +
-    `   Automated grid trading on PancakeSwap\n\n` +
-    `Tap an agent to see details, or open the full marketplace:`,
+    `🔍 *Results for "${query}":*\n\n${lines.join('\n\n')}\n\nOpen the marketplace to hire:`,
     {
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🛍️ Open Marketplace', web_app: { url: MINI_APP_URL } }],
+          [{ text: '🛍️ Open Marketplace', web_app: { url: `${MINI_APP_URL}?search=${encodeURIComponent(query)}` } }],
         ],
       },
     }
@@ -101,20 +124,46 @@ bot.command('search', async (ctx) => {
 
 // /myagents command — Show user's hired agents
 bot.command('myagents', async (ctx) => {
-  // TODO: Query Supabase for user's contracts
-  await ctx.reply(
-    '🤖 *Your Active Agents*\n\n' +
-    'You don\'t have any active agents yet.\n\n' +
-    'Browse the marketplace to find and hire agents:',
-    {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🛍️ Browse Agents', web_app: { url: MINI_APP_URL } }],
-        ],
-      },
-    }
-  );
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const supabase = createServiceClient();
+  const { data: contracts, error } = await supabase
+    .from('contracts')
+    .select('id, pricing_type, pricing_value, pricing_currency, status, agents(name)')
+    .eq('buyer_id', String(telegramId))
+    .in('status', ['active', 'completed'])
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (error || !contracts || contracts.length === 0) {
+    await ctx.reply(
+      '🤖 *Your Active Agents*\n\n' +
+      'You don\'t have any active agents yet.\n\n' +
+      'Browse the marketplace to find and hire agents:',
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🛍️ Browse Agents', web_app: { url: MINI_APP_URL } }],
+          ],
+        },
+      }
+    );
+    return;
+  }
+
+  const lines = contracts.map((c) => {
+    const agentName = (c.agents as unknown as { name: string } | null)?.name || 'Unknown agent';
+    return `🤖 *${agentName}*\n   💰 ${formatPricing(c.pricing_type, c.pricing_value)} | ${c.status}`;
+  });
+
+  await ctx.reply(`🤖 *Your Active Agents*\n\n${lines.join('\n\n')}`, {
+    parse_mode: 'Markdown',
+    reply_markup: {
+      inline_keyboard: [[{ text: '🛍️ Open Marketplace', web_app: { url: `${MINI_APP_URL}/dashboard` } }]],
+    },
+  });
 });
 
 // /help command
@@ -156,8 +205,8 @@ bot.on('callback_query:data', async (ctx) => {
 });
 
 // Handle Mini App data (when user completes an action in Mini App)
-bot.on('web_app_data', async (ctx) => {
-  const data = ctx.webAppData?.data;
+bot.on('message:web_app_data', async (ctx) => {
+  const data = ctx.msg.web_app_data?.data;
   if (data) {
     try {
       const parsed = JSON.parse(data);

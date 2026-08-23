@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useTelegram } from '@/hooks/useTelegram';
+import { useIdentity } from '@/hooks/useIdentity';
 import { MiniAppShell } from '@/components/miniapp/MiniAppShell';
 
 interface Agent {
@@ -38,7 +40,8 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
-  const { user, isAuthenticated, isLoading } = useTelegram();
+  const { isLoading: telegramLoading } = useTelegram();
+  const { identity, isAuthenticated } = useIdentity();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
@@ -48,58 +51,61 @@ export default function DashboardPage() {
     avgRating: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'agents' | 'contracts'>('overview');
 
-  useEffect(() => {
-    if (!isAuthenticated || !user) return;
+  const fetchDashboard = useCallback(async () => {
+    if (!identity) return;
+    setError(null);
 
-    const fetchDashboard = async () => {
-      try {
-        const initData = window.Telegram?.WebApp?.initData || '';
+    try {
+      const [agentsRes, contractsRes] = await Promise.all([
+        fetch('/api/agents?seller=me', { headers: identity.authHeader }),
+        fetch('/api/contracts?role=seller', { headers: identity.authHeader }),
+      ]);
 
-        // Fetch seller's agents
-        const agentsRes = await fetch('/api/agents?seller=me', {
-          headers: { 'x-telegram-init-data': initData },
-        });
-        if (agentsRes.ok) {
-          const agentsData = await agentsRes.json();
-          setAgents(agentsData.agents);
-        }
-
-        // Fetch seller's contracts
-        const contractsRes = await fetch('/api/contracts?role=seller', {
-          headers: { 'x-telegram-init-data': initData },
-        });
-        if (contractsRes.ok) {
-          const contractsData = await contractsRes.json();
-          setContracts(contractsData.contracts);
-        }
-
-        // Calculate stats
-        const totalRevenue = agents.reduce((sum, a) => sum + a.total_revenue, 0);
-        const activeContracts = contracts.filter((c) => c.status === 'active').length;
-        const avgRating =
-          agents.length > 0
-            ? agents.reduce((sum, a) => sum + a.avg_rating, 0) / agents.length
-            : 0;
-
-        setStats({
-          totalRevenue,
-          activeContracts,
-          totalAgents: agents.length,
-          avgRating,
-        });
-      } catch (error) {
-        console.error('Dashboard fetch error:', error);
-      } finally {
-        setLoading(false);
+      if (!agentsRes.ok || !contractsRes.ok) {
+        throw new Error('Failed to load dashboard data');
       }
-    };
 
+      const agentsData = await agentsRes.json();
+      const contractsData = await contractsRes.json();
+      const fetchedAgents: Agent[] = agentsData.agents;
+      const fetchedContracts: Contract[] = contractsData.contracts;
+
+      setAgents(fetchedAgents);
+      setContracts(fetchedContracts);
+
+      const totalRevenue = fetchedAgents.reduce((sum, a) => sum + a.total_revenue, 0);
+      const activeContracts = fetchedContracts.filter((c) => c.status === 'active').length;
+      const avgRating =
+        fetchedAgents.length > 0
+          ? fetchedAgents.reduce((sum, a) => sum + a.avg_rating, 0) / fetchedAgents.length
+          : 0;
+
+      setStats({
+        totalRevenue,
+        activeContracts,
+        totalAgents: fetchedAgents.length,
+        avgRating,
+      });
+    } catch (err) {
+      console.error('Dashboard fetch error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard');
+    } finally {
+      setLoading(false);
+    }
+  }, [identity]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
     fetchDashboard();
-  }, [isAuthenticated, user, agents.length, contracts.length]);
+  }, [isAuthenticated, fetchDashboard]);
 
-  if (isLoading || loading) {
+  if (telegramLoading || loading) {
     return (
       <MiniAppShell>
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -114,8 +120,24 @@ export default function DashboardPage() {
       <MiniAppShell>
         <div className="text-center py-12">
           <p className="text-gray-400 text-lg mb-4">
-            Open this app in Telegram to access your dashboard
+            Open this app in Telegram, or connect your wallet, to access your dashboard
           </p>
+        </div>
+      </MiniAppShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <MiniAppShell>
+        <div className="text-center py-12">
+          <p className="text-red-400 text-lg mb-4">{error}</p>
+          <button
+            onClick={() => { setLoading(true); fetchDashboard(); }}
+            className="rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-2 text-black font-semibold"
+          >
+            Retry
+          </button>
         </div>
       </MiniAppShell>
     );
@@ -127,7 +149,7 @@ export default function DashboardPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">Seller Dashboard</h1>
         <p className="text-gray-400">
-          Welcome back, {user?.first_name}
+          Welcome back, {identity?.displayName}
         </p>
       </div>
 
@@ -223,14 +245,18 @@ export default function DashboardPage() {
           <div>
             <h3 className="text-sm font-medium text-gray-400 mb-3">Quick Actions</h3>
             <div className="grid grid-cols-2 gap-2">
-              <a
+              <Link
                 href="/list"
                 className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-center"
               >
                 <span className="text-lg">➕</span>
                 <p className="text-sm text-amber-400 mt-1">List New Agent</p>
-              </a>
-              <button className="rounded-lg border border-gray-800 bg-gray-900/50 p-3 text-center">
+              </Link>
+              <button
+                disabled
+                title="Coming soon"
+                className="rounded-lg border border-gray-800 bg-gray-900/50 p-3 text-center opacity-50 cursor-not-allowed"
+              >
                 <span className="text-lg">💰</span>
                 <p className="text-sm text-gray-300 mt-1">Withdraw</p>
               </button>
@@ -244,12 +270,12 @@ export default function DashboardPage() {
           {agents.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500 mb-4">You haven&apos;t listed any agents yet</p>
-              <a
+              <Link
                 href="/list"
                 className="inline-block rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-2 text-black font-semibold"
               >
                 List Your First Agent
-              </a>
+              </Link>
             </div>
           ) : (
             agents.map((agent) => (
@@ -293,12 +319,12 @@ export default function DashboardPage() {
                       </p>
                     </div>
                   </div>
-                  <a
+                  <Link
                     href={`/agent/${agent.id}`}
                     className="text-xs text-amber-400 hover:text-amber-300"
                   >
                     View →
-                  </a>
+                  </Link>
                 </div>
               </div>
             ))

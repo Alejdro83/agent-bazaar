@@ -19,20 +19,18 @@ interface Agent {
 
 const CATEGORIES = [
   { id: 'all', label: 'All', icon: '🤖' },
-  { id: 'yield', label: 'Yield', icon: '🌾' },
-  { id: 'trading', label: 'Trading', icon: '📈' },
-  { id: 'defi', label: 'DeFi', icon: '🏦' },
-  { id: 'monitoring', label: 'Monitor', icon: '👁️' },
-  { id: 'analytics', label: 'Analytics', icon: '📊' },
+  { id: 'rebalancing', label: 'Rebalancing', icon: '⚖️' },
+  { id: 'grid_trading', label: 'Grid Trading', icon: '📈' },
+  { id: 'yield_optimisation', label: 'Yield', icon: '🌾' },
+  { id: 'health_factor', label: 'Health Factor', icon: '🛡️' },
 ];
 
 function CategoryBadge({ category }: { category: string }) {
   const colors: Record<string, string> = {
-    yield: 'bg-emerald-900/30 text-emerald-400',
-    trading: 'bg-blue-900/30 text-blue-400',
-    defi: 'bg-amber-900/30 text-amber-400',
-    monitoring: 'bg-purple-900/30 text-purple-400',
-    analytics: 'bg-cyan-900/30 text-cyan-400',
+    rebalancing: 'bg-blue-900/30 text-blue-400',
+    grid_trading: 'bg-purple-900/30 text-purple-400',
+    yield_optimisation: 'bg-emerald-900/30 text-emerald-400',
+    health_factor: 'bg-amber-900/30 text-amber-400',
   };
 
   return (
@@ -79,15 +77,13 @@ function AgentCard({ agent }: { agent: Agent }) {
   };
 
   const categoryIcon =
-    agent.category === 'yield'
-      ? '🌾'
-      : agent.category === 'trading'
+    agent.category === 'rebalancing'
+      ? '⚖️'
+      : agent.category === 'grid_trading'
       ? '📈'
-      : agent.category === 'defi'
-      ? '🏦'
-      : agent.category === 'monitoring'
-      ? '👁️'
-      : '📊';
+      : agent.category === 'yield_optimisation'
+      ? '🌾'
+      : '🛡️';
 
   return (
     <div
