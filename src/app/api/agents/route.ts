@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('agents')
       .select(
-        'id, name, description, category, subcategory, pricing_type, pricing_value, pricing_currency, status, avatar_url, total_hires, avg_rating, source, chain_id, is_testnet, onchain_reputation, created_at',
+        'id, name, description, category, subcategory, pricing_type, pricing_value, pricing_currency, status, avatar_url, total_hires, avg_rating, total_revenue, source, chain_id, is_testnet, onchain_reputation, created_at',
         { count: 'exact' }
       );
 
