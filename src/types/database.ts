@@ -189,21 +189,21 @@ export interface Database {
           id: string;
           created_at: string;
           agent_id: string;
-          embedding: number[];
+          embedding: string;
           content: string;
         };
         Insert: {
           id?: string;
           created_at?: string;
           agent_id: string;
-          embedding: number[];
+          embedding: string;
           content: string;
         };
         Update: {
           id?: string;
           created_at?: string;
           agent_id?: string;
-          embedding?: number[];
+          embedding?: string;
           content?: string;
         };
         Relationships: [];
@@ -215,7 +215,7 @@ export interface Database {
     Functions: {
       search_agents: {
         Args: {
-          query_embedding: number[];
+          query_embedding: string;
           match_threshold: number;
           match_count: number;
           category_filter: string | null;
@@ -230,7 +230,7 @@ export interface Database {
           pricing_value: number;
           pricing_currency: string;
           status: string;
-          seller_id: string;
+          source: string;
           total_hires: number;
           avg_rating: number;
           avatar_url: string | null;

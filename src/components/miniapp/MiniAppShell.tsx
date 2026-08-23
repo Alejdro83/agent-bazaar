@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Home, Search, Bot, User, Store } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
+import { ConciergeChat } from '@/components/concierge/ConciergeChat';
 
 const TABS = [
   { href: '/', icon: Home, label: 'Home' },
@@ -71,6 +72,8 @@ export function MiniAppShell({ children }: { children: ReactNode }) {
           })}
         </div>
       </footer>
+
+      <ConciergeChat />
     </div>
   );
 }

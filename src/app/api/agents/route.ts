@@ -50,7 +50,8 @@ export async function GET(request: NextRequest) {
         { count: 'exact' }
       );
 
-    if (searchParams.get('seller') === 'me') {
+    const isSellerView = searchParams.get('seller') === 'me';
+    if (isSellerView) {
       // Dashboard "my agents" view — needs real identity, and shows every
       // status (drafts included), not just the public 'active' listing.
       const requester = identifyRequester(request);
@@ -90,11 +91,27 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Cheap, honest "Data Quality" signal for the public listing: when the
+    // real BSC catalog (source='8004scan') was last synced, not just a
+    // static count.
+    let lastSyncedAt: string | null = null;
+    if (!isSellerView) {
+      const { data: latest } = await supabase
+        .from('agents')
+        .select('created_at')
+        .eq('source', '8004scan')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      lastSyncedAt = latest?.created_at ?? null;
+    }
+
     return NextResponse.json({
       agents: agents || [],
       total: count || 0,
       limit,
       offset,
+      last_synced_at: lastSyncedAt,
     });
   } catch (error) {
     console.error('API error:', error);
@@ -204,6 +221,20 @@ export async function POST(request: NextRequest) {
           { error: 'Agent registered onchain but failed to save — contact support', agent: draftAgent },
           { status: 500 }
         );
+      }
+
+      // Best-effort: index for the Concierge (semantic search). A failure
+      // here just means this agent falls back to keyword search until the
+      // next backfill run — not worth failing the whole listing over.
+      try {
+        const { generateEmbedding, buildAgentSearchText, toVectorLiteral } = await import('@/lib/embeddings');
+        const text = buildAgentSearchText(agent);
+        const embedding = await generateEmbedding(text);
+        await supabase
+          .from('search_embeddings')
+          .upsert({ agent_id: agent.id, content: text, embedding: toVectorLiteral(embedding) }, { onConflict: 'agent_id' });
+      } catch (embeddingError) {
+        console.error('Embedding indexing error (non-blocking):', embeddingError);
       }
 
       return NextResponse.json({ agent }, { status: 201 });

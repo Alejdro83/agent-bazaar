@@ -91,8 +91,8 @@ CREATE TABLE ratings (
 CREATE TABLE search_embeddings (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-  embedding VECTOR(1536),
+  agent_id UUID NOT NULL UNIQUE REFERENCES agents(id) ON DELETE CASCADE,
+  embedding VECTOR(768), -- Cloudflare Workers AI bge-base-en-v1.5
   content TEXT NOT NULL
 );
 
@@ -106,6 +106,9 @@ CREATE INDEX idx_contracts_buyer ON contracts(buyer_id);
 CREATE INDEX idx_contracts_seller ON contracts(seller_id);
 CREATE INDEX idx_ratings_agent ON ratings(agent_id);
 CREATE INDEX idx_search_embeddings_agent ON search_embeddings(agent_id);
+-- No ivfflat index here on purpose — see supabase/migrations/003_semantic_search_cloudflare.sql
+-- for why it silently breaks results at this catalog size. Sequential scan is fine until
+-- the catalog reaches the thousands.
 
 -- Function: update agent stats
 CREATE OR REPLACE FUNCTION update_agent_stats(p_agent_id UUID)
@@ -120,11 +123,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function: semantic search agents
+-- Function: semantic search agents (Cloudflare Workers AI bge-base-en-v1.5, 768-dim)
 CREATE OR REPLACE FUNCTION search_agents(
-  query_embedding VECTOR(1536),
-  match_threshold FLOAT DEFAULT 0.7,
-  match_count INT DEFAULT 10,
+  query_embedding VECTOR(768),
+  match_threshold FLOAT DEFAULT 0.5,
+  match_count INT DEFAULT 3,
   category_filter agent_category DEFAULT NULL
 )
 RETURNS TABLE (
@@ -137,7 +140,7 @@ RETURNS TABLE (
   pricing_value NUMERIC,
   pricing_currency TEXT,
   status agent_status,
-  seller_id TEXT,
+  source agent_source,
   total_hires INTEGER,
   avg_rating NUMERIC,
   avatar_url TEXT,
@@ -155,7 +158,7 @@ BEGIN
     a.pricing_value,
     a.pricing_currency,
     a.status,
-    a.seller_id,
+    a.source,
     a.total_hires,
     a.avg_rating,
     a.avatar_url,

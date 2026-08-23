@@ -6,6 +6,17 @@ import { useTelegram } from '@/hooks/useTelegram';
 import { MiniAppShell } from '@/components/miniapp/MiniAppShell';
 import { CATEGORY_ICONS } from '@/lib/categories';
 
+function timeAgo(isoDate: string): string {
+  const seconds = Math.floor((Date.now() - new Date(isoDate).getTime()) / 1000);
+  if (seconds < 60) return 'moments ago';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 interface Agent {
   id: string;
   name: string;
@@ -119,6 +130,7 @@ export default function HomePage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -135,6 +147,7 @@ export default function HomePage() {
 
       const data = await res.json();
       setAgents(data.agents);
+      if (data.last_synced_at) setLastSyncedAt(data.last_synced_at);
     } catch (err) {
       console.error('Fetch error:', err);
       setError('Failed to load agents. Please try again.');
@@ -196,6 +209,12 @@ export default function HomePage() {
           </button>
         ))}
       </div>
+
+      {lastSyncedAt && (
+        <p className="mb-4 text-xs text-gray-600">
+          BSC catalog synced {timeAgo(lastSyncedAt)}
+        </p>
+      )}
 
       {/* Error state */}
       {error && (
