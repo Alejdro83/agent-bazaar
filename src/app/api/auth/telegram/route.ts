@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateInitData } from '@/lib/telegram/validate';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 
 /**
  * POST /api/auth/telegram
@@ -7,6 +8,18 @@ import { validateInitData } from '@/lib/telegram/validate';
  */
 export async function POST(request: NextRequest) {
   try {
+    // No requester identity exists yet at this point (that's what this
+    // route establishes), so the rate-limit key is the caller's IP rather
+    // than a validated id.
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const rateLimit = checkRateLimit(`auth:${ip}`, RATE_LIMITS.auth);
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: 'Too many auth attempts, try again shortly' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) } }
+      );
+    }
+
     const { initData } = await request.json();
 
     if (!initData) {

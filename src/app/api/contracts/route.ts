@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { identifyRequester } from '@/lib/auth/identify';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 
 /**
  * GET /api/contracts?role=buyer|seller — List the caller's contracts (dashboard)
- * POST /api/contracts — Create a new contract (hire an agent)
- * Mock x402 payment flow for hackathon demo
+ * POST /api/contracts — Create a new contract (hire an agent), with a real
+ * onchain hire-record write — see src/lib/erc8004/recordHireOnchain.
  */
 
 export async function GET(request: NextRequest) {
@@ -44,6 +45,14 @@ export async function POST(request: NextRequest) {
     const requester = identifyRequester(request);
     if (!requester) {
       return NextResponse.json({ error: 'Auth required' }, { status: 401 });
+    }
+
+    const rateLimit = checkRateLimit(`hire:${requester.id}`, RATE_LIMITS.hire);
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: 'Too many hire attempts, try again later' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) } }
+      );
     }
 
     const body = await request.json().catch(() => null);

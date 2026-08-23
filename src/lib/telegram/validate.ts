@@ -65,8 +65,15 @@ export function validateInitData(
     .update(dataCheckString)
     .digest('hex');
 
-  // Compare
-  if (computedHash !== hash) {
+  // Compare using a constant-time check — a plain `!==` leaks timing
+  // information proportional to how many leading hex chars match, which an
+  // attacker could use to forge a valid hash byte-by-byte.
+  const computedHashBuffer = Buffer.from(computedHash, 'hex');
+  const hashBuffer = Buffer.from(hash, 'hex');
+  if (
+    hashBuffer.length !== computedHashBuffer.length ||
+    !crypto.timingSafeEqual(computedHashBuffer, hashBuffer)
+  ) {
     return { valid: false, error: 'Invalid signature' };
   }
 
