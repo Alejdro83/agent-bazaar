@@ -25,7 +25,7 @@ export function MiniAppShell({ children }: { children: ReactNode }) {
       style={{ minHeight: viewportHeight || '100vh' }}
     >
       <header className="sticky top-0 z-50 border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm">
-        <div className="flex max-w-lg mx-auto items-center justify-between px-4 py-3">
+        <div className="flex max-w-2xl mx-auto items-center justify-between px-4 py-3">
           <Link href="/" className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-orange-500">
               <Store className="h-[18px] w-[18px] text-gray-950" strokeWidth={2.25} />
@@ -48,12 +48,12 @@ export function MiniAppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-4">
+      <main className="max-w-2xl mx-auto px-4 py-4">
         {children}
       </main>
 
       <footer className="fixed bottom-0 left-0 right-0 border-t border-gray-800 bg-gray-950/90 backdrop-blur-sm">
-        <div className="flex max-w-lg mx-auto items-center justify-around py-2 px-4">
+        <div className="flex max-w-2xl mx-auto items-center justify-around py-2 px-4">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             return (
