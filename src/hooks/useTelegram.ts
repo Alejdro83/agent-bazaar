@@ -79,7 +79,15 @@ export function useTelegram(): UseTelegramReturn {
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
-    if (!tg) {
+    // telegram-web-app.js defines window.Telegram.WebApp unconditionally —
+    // even on a plain web page that never ran inside a Telegram client, so
+    // `tg` alone is truthy everywhere. `initData` is the one field the real
+    // client actually populates (a real Telegram Mini App always opens with
+    // it non-empty); standalone in a browser it stays `""`. Without this
+    // check, every `isInTelegram`/`mainButton` check downstream (wallet
+    // ConnectButton, the web hire button, useIdentity's wallet branch) was
+    // permanently stuck on "yes, we're in Telegram" for actual web visitors.
+    if (!tg || !tg.initData) {
       setIsLoading(false);
       return;
     }

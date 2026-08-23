@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Star, Plus, Wallet } from 'lucide-react';
+import { Star, Plus, Wallet, Trash2 } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useIdentity } from '@/hooks/useIdentity';
 import { MiniAppShell } from '@/components/miniapp/MiniAppShell';
@@ -54,6 +54,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'agents' | 'contracts'>('overview');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchDashboard = useCallback(async () => {
     if (!identity) return;
@@ -97,6 +98,28 @@ export default function DashboardPage() {
       setLoading(false);
     }
   }, [identity]);
+
+  const handleDelete = useCallback(async (agentId: string, agentName: string) => {
+    if (!identity) return;
+    if (!window.confirm(`Delete "${agentName}"? This removes it from the marketplace.`)) return;
+
+    setDeletingId(agentId);
+    try {
+      const res = await fetch(`/api/agents/${agentId}`, {
+        method: 'DELETE',
+        headers: identity.authHeader,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to delete agent');
+      }
+      await fetchDashboard();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete agent');
+    } finally {
+      setDeletingId(null);
+    }
+  }, [identity, fetchDashboard]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -322,12 +345,22 @@ export default function DashboardPage() {
                       </p>
                     </div>
                   </div>
-                  <Link
-                    href={`/agent/${agent.id}`}
-                    className="text-xs text-amber-400 hover:text-amber-300"
-                  >
-                    View →
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    <Link
+                      href={`/agent/${agent.id}`}
+                      className="text-xs text-amber-400 hover:text-amber-300"
+                    >
+                      View →
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(agent.id, agent.name)}
+                      disabled={deletingId === agent.id}
+                      className="flex items-center gap-1 text-xs text-red-400/80 hover:text-red-400 disabled:opacity-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                      {deletingId === agent.id ? 'Deleting…' : 'Delete'}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))
