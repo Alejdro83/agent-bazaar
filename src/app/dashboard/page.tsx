@@ -72,7 +72,12 @@ export default function DashboardPage() {
 
       const agentsData = await agentsRes.json();
       const contractsData = await contractsRes.json();
-      const fetchedAgents: Agent[] = agentsData.agents;
+      // 'seller=me' intentionally returns every status (drafts included), but
+      // 'archived' means the seller deleted it — the dashboard shouldn't show
+      // a "deleted" listing back to them as if nothing happened.
+      const fetchedAgents: Agent[] = agentsData.agents.filter(
+        (a: Agent) => a.status !== 'archived'
+      );
       const fetchedContracts: Contract[] = contractsData.contracts;
 
       setAgents(fetchedAgents);
