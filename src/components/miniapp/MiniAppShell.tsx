@@ -20,9 +20,7 @@ export function MiniAppShell({ children }: { children: ReactNode }) {
 
   return (
     <div
-      className={`min-h-screen ${
-        colorScheme === 'dark' ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900'
-      }`}
+      className="min-h-screen bg-gray-950 text-white"
       style={{ minHeight: viewportHeight || '100vh' }}
     >
       <header className="sticky top-0 z-50 border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm">
