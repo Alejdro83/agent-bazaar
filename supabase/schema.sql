@@ -26,8 +26,14 @@ CREATE TABLE agents (
   pricing_value NUMERIC NOT NULL DEFAULT 0,
   pricing_currency TEXT NOT NULL DEFAULT 'USD',
   wallet_address TEXT NOT NULL,
-  erc8004_id TEXT,
+  -- Real ERC-8004 Identity Registry token id (Fase 4) — UNIQUE because it's
+  -- the on-chain identity handed to exactly one agent; NULL while
+  -- registration is in flight or for pre-Fase-4 rows.
+  erc8004_id TEXT UNIQUE,
   erc8004_data JSONB,
+  -- Registration transaction hash on BSC testnet/mainnet — lets the UI link
+  -- straight to BscScan instead of just showing the registry token id.
+  onchain_tx_hash TEXT,
   status agent_status NOT NULL DEFAULT 'draft',
   metadata JSONB,
   avatar_url TEXT,

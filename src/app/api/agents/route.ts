@@ -138,12 +138,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate ERC-8004 identity
-    const { generateERC8004Metadata } = await import("@/lib/erc8004");
-    const erc8004 = generateERC8004Metadata(body.wallet_address, body.name, body.capabilities || [body.category]);
-
-    // Insert agent
-    const { data: agent, error } = await supabase
+    // Insert the listing first (draft) — the DB id becomes the agent's own
+    // ERC-8004 "web" endpoint (/agent/<id>), so registration needs the row
+    // to already exist.
+    const { data: draftAgent, error: draftError } = await supabase
       .from('agents')
       .insert({
         seller_id: requester.id,
@@ -155,23 +153,70 @@ export async function POST(request: NextRequest) {
         pricing_value: body.pricing_value,
         pricing_currency: body.pricing_currency || 'USD',
         wallet_address: body.wallet_address,
-        status: "active",
-        erc8004_id: erc8004.erc8004_id,
-        erc8004_data: erc8004.erc8004_data,
+        status: 'draft',
         metadata: body.metadata || null,
       })
       .select()
       .single();
 
-    if (error) {
-      console.error('Supabase insert error:', error);
+    if (draftError || !draftAgent) {
+      console.error('Supabase insert error:', draftError);
       return NextResponse.json(
         { error: 'Failed to create agent' },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ agent }, { status: 201 });
+    // Register on the ERC-8004 Identity Registry (BSC testnet, gas-free via
+    // MegaFuel). A failure here leaves the listing as 'draft' rather than
+    // half-published as 'active' with no real onchain identity.
+    const pricingLabel =
+      body.pricing_type === 'free' ? 'Free' :
+      body.pricing_type === 'percentage' ? `${body.pricing_value}% of yield` :
+      `$${body.pricing_value}/mo`;
+
+    try {
+      const { registerAgentOnchain, toJson } = await import('@/lib/erc8004');
+      const registration = await registerAgentOnchain({
+        agentDbId: draftAgent.id,
+        name: body.name,
+        description: body.description,
+        category: body.category,
+        sellerWallet: body.wallet_address,
+        pricingLabel,
+      });
+
+      const { data: agent, error: updateError } = await supabase
+        .from('agents')
+        .update({
+          status: 'active',
+          erc8004_id: registration.agentId !== null ? String(registration.agentId) : null,
+          erc8004_data: toJson(registration),
+          onchain_tx_hash: registration.transactionHash,
+        })
+        .eq('id', draftAgent.id)
+        .select()
+        .single();
+
+      if (updateError || !agent) {
+        console.error('Supabase update error after onchain registration:', updateError);
+        return NextResponse.json(
+          { error: 'Agent registered onchain but failed to save — contact support', agent: draftAgent },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ agent }, { status: 201 });
+    } catch (registrationError) {
+      console.error('ERC-8004 registration error:', registrationError);
+      return NextResponse.json(
+        {
+          error: 'Onchain registration failed — your listing was saved as a draft, try again shortly.',
+          agent: draftAgent,
+        },
+        { status: 502 }
+      );
+    }
   } catch (error) {
     console.error('API error:', error);
     return NextResponse.json(

@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     // Fetch agent to get seller_id and wallet
     const { data: agent, error: agentError } = await supabase
       .from('agents')
-      .select('id, seller_id, wallet_address, pricing_type, pricing_value, pricing_currency, source')
+      .select('id, seller_id, wallet_address, pricing_type, pricing_value, pricing_currency, source, erc8004_id')
       .eq('id', agent_id)
       .eq('status', 'active')
       .single();
@@ -78,16 +78,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Mock x402 payment — in production this would:
-    // 1. Generate x402 payment request (ERC-8183)
-    // 2. Buyer's Altana wallet signs and pays
-    // 3. Payment tx hash recorded
-    // For demo: simulate successful payment
-    const mockTxHash = `0x${Array.from({ length: 64 }, () =>
-      Math.floor(Math.random() * 16).toString(16)
-    ).join('')}`;
-
-    // Create contract
+    // Create contract (no payment_tx_hash yet — see the onchain write below).
+    // Full x402/ERC-8183 escrow payment is out of scope (it would require the
+    // buyer to hold and approve a payment token, adding real friction to
+    // "hire with one click" — see src/lib/erc8004/recordHireOnchain).
     const { data: contract, error: contractError } = await supabase
       .from('contracts')
       .insert({
@@ -98,7 +92,6 @@ export async function POST(request: NextRequest) {
         pricing_type: agent.pricing_type,
         pricing_value: agent.pricing_value,
         pricing_currency: agent.pricing_currency,
-        payment_tx_hash: mockTxHash,
         started_at: new Date().toISOString(),
         expires_at: agent.pricing_type === 'fixed'
           ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
@@ -118,14 +111,35 @@ export async function POST(request: NextRequest) {
     // Update agent stats
     await supabase.rpc('update_agent_stats', { p_agent_id: agent.id });
 
+    // Record the hire as a real onchain write (gas-free, operator-signed) on
+    // the agent's ERC-8004 registration — a genuine, BscScan-verifiable tx.
+    // Best-effort: only agents actually registered onchain (Fase 4) carry an
+    // erc8004_id, and a transient RPC failure shouldn't block the hire the
+    // buyer already paid nothing extra for.
+    let paymentTxHash: string | null = null;
+    if (agent.erc8004_id) {
+      try {
+        const { recordHireOnchain } = await import('@/lib/erc8004');
+        const record = await recordHireOnchain({
+          erc8004AgentId: Number(agent.erc8004_id),
+          contractId: contract.id,
+          buyerId: requester.id,
+        });
+        paymentTxHash = record.transactionHash;
+        await supabase
+          .from('contracts')
+          .update({ payment_tx_hash: paymentTxHash })
+          .eq('id', contract.id);
+      } catch (onchainError) {
+        console.error('Onchain hire-record error (non-blocking):', onchainError);
+      }
+    }
+
     return NextResponse.json({
-      contract,
-      payment: {
-        tx_hash: mockTxHash,
-        network: 'BSC Testnet',
-        status: 'confirmed',
-        note: 'Mock payment for demo',
-      },
+      contract: { ...contract, payment_tx_hash: paymentTxHash },
+      payment: paymentTxHash
+        ? { tx_hash: paymentTxHash, network: 'BSC Testnet', status: 'confirmed' }
+        : { tx_hash: null, network: 'BSC Testnet', status: 'unavailable' },
     }, { status: 201 });
   } catch (error) {
     console.error('API error:', error);

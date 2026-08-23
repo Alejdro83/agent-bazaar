@@ -25,6 +25,7 @@ export interface Database {
           wallet_address: string;
           erc8004_id: string | null;
           erc8004_data: Json | null;
+          onchain_tx_hash: string | null;
           status: AgentStatus;
           metadata: Json | null;
           avatar_url: string | null;
@@ -53,6 +54,7 @@ export interface Database {
           wallet_address: string;
           erc8004_id?: string | null;
           erc8004_data?: Json | null;
+          onchain_tx_hash?: string | null;
           status?: AgentStatus;
           metadata?: Json | null;
           avatar_url?: string | null;
@@ -80,6 +82,7 @@ export interface Database {
           wallet_address?: string;
           erc8004_id?: string | null;
           erc8004_data?: Json | null;
+          onchain_tx_hash?: string | null;
           status?: AgentStatus;
           metadata?: Json | null;
           avatar_url?: string | null;

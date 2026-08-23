@@ -27,6 +27,7 @@ interface Agent {
   onchain_reputation: number | null;
   external_agent_id: string | null;
   erc8004_id: string | null;
+  onchain_tx_hash: string | null;
   total_revenue: number;
   created_at: string;
 }
@@ -106,8 +107,6 @@ export default function AgentDetailPage() {
     setHireMessage(null);
 
     try {
-      // Mock x402 payment flow
-      // In production: this would initiate an x402 payment via Altana wallet
       const res = await fetch('/api/contracts', {
         method: 'POST',
         headers: {
@@ -126,7 +125,12 @@ export default function AgentDetailPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to create contract');
 
       haptic?.notificationOccurred('success');
-      setHireMessage({ type: 'success', text: 'Agent hired! (demo payment)' });
+      setHireMessage({
+        type: 'success',
+        text: data.payment?.tx_hash
+          ? `Agent hired! Onchain record: ${data.payment.tx_hash.slice(0, 10)}…`
+          : 'Agent hired!',
+      });
     } catch (err) {
       haptic?.notificationOccurred('error');
       setHireMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to hire agent' });
@@ -350,6 +354,23 @@ export default function AgentDetailPage() {
               <p className="text-sm text-gray-300">
                 {agent.onchain_reputation !== null ? agent.onchain_reputation.toFixed(2) : '—'}
               </p>
+            </div>
+          )}
+          {agent.source === 'user' && (
+            <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-3 col-span-2">
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">ERC-8004 Identity</p>
+              {agent.onchain_tx_hash ? (
+                <a
+                  href={`https://testnet.bscscan.com/tx/${agent.onchain_tx_hash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-amber-400 hover:text-amber-300 font-mono"
+                >
+                  Agent #{agent.erc8004_id} — view registration tx ↗
+                </a>
+              ) : (
+                <p className="text-sm text-gray-500">Not registered onchain</p>
+              )}
             </div>
           )}
         </div>
