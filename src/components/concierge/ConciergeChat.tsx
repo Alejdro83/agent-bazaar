@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Bot, X, Send, Loader2, Star } from 'lucide-react';
+import { Bot, X, Send, Loader2, Star, Swords } from 'lucide-react';
 import { CATEGORY_ICONS } from '@/lib/categories';
 
 interface Match {
@@ -150,6 +150,16 @@ export function ConciergeChat() {
                     </Link>
                   );
                 })}
+                {matches.length >= 2 && (
+                  <Link
+                    href={`/arena?agentA=${matches[0].id}`}
+                    onClick={() => setOpen(false)}
+                    className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-800 py-2 text-xs font-medium text-gray-400 hover:border-amber-500/30 hover:text-amber-400 transition-colors"
+                  >
+                    <Swords className="h-3.5 w-3.5" strokeWidth={2} />
+                    Compare top matches in Arena
+                  </Link>
+                )}
               </div>
             )}
           </div>

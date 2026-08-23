@@ -4,13 +4,13 @@ import { type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { Home, Search, Bot, User, Store } from 'lucide-react';
+import { Home, Swords, Bot, User, Store } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { ConciergeChat } from '@/components/concierge/ConciergeChat';
 
 const TABS = [
   { href: '/', icon: Home, label: 'Home' },
-  { href: '/', icon: Search, label: 'Search' },
+  { href: '/arena', icon: Swords, label: 'Arena' },
   { href: '/dashboard', icon: Bot, label: 'My Agents' },
   { href: '/profile', icon: User, label: 'Profile' },
 ] as const;
@@ -41,6 +41,9 @@ export function MiniAppShell({ children }: { children: ReactNode }) {
             </Link>
             <Link href="/dashboard" className="text-sm text-gray-400 hover:text-white transition-colors">
               My Agents
+            </Link>
+            <Link href="/arena" className="text-sm text-gray-400 hover:text-white transition-colors">
+              Arena
             </Link>
             {/* Outside Telegram, wallet connection is the only identity — inside
                 Telegram, initData already identifies the user. */}
