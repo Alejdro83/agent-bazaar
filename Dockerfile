@@ -1,4 +1,9 @@
-FROM node:20-slim AS base
+FROM node:22-slim AS base
+# Node 22, not 20: @supabase/supabase-js's realtime client needs a native
+# WebSocket global, which Node 20 doesn't have — it was throwing "Node.js
+# detected but native WebSocket not found" on every query (including plain
+# .textSearch() calls that never touch realtime), silently killing /search
+# and /myagents in production.
 
 # Build — needs devDependencies (typescript, tsx) to run `tsc`, so this
 # stage does a full `npm ci`, never `--omit=dev`. (The previous version
