@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { ArrowLeft, Bot, Star } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useIdentity } from '@/hooks/useIdentity';
 import { MiniAppShell } from '@/components/miniapp/MiniAppShell';
+import { CATEGORY_ICONS } from '@/lib/categories';
 
 interface Agent {
   id: string;
@@ -176,30 +178,29 @@ export default function AgentDetailPage() {
       <MiniAppShell>
         <div className="text-center py-12">
           <p className="text-red-400 text-lg">{error || 'Agent not found'}</p>
-          <Link href="/" className="text-amber-400 hover:text-amber-300 mt-4 inline-block">
-            ← Back to Browse
+          <Link href="/" className="inline-flex items-center gap-1 text-amber-400 hover:text-amber-300 mt-4">
+            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} />
+            Back to Browse
           </Link>
         </div>
       </MiniAppShell>
     );
   }
 
-  const categoryIcon =
-    agent.category === 'rebalancing' ? '⚖️' :
-    agent.category === 'grid_trading' ? '📈' :
-    agent.category === 'yield_optimisation' ? '🌾' : '🛡️';
+  const CategoryIcon = CATEGORY_ICONS[agent.category] ?? Bot;
 
   return (
     <MiniAppShell>
       {/* Back button */}
-      <Link href="/" className="text-amber-400 hover:text-amber-300 text-sm mb-4 inline-block">
-        ← Back
+      <Link href="/" className="inline-flex items-center gap-1 text-amber-400 hover:text-amber-300 text-sm mb-4">
+        <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} />
+        Back
       </Link>
 
       {/* Header */}
       <div className="flex items-start gap-4 mb-6">
-        <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center text-2xl">
-          {categoryIcon}
+        <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center">
+          <CategoryIcon className="h-7 w-7 text-amber-400" strokeWidth={2} />
         </div>
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-white">{agent.name}</h1>
@@ -208,7 +209,7 @@ export default function AgentDetailPage() {
               {agent.category}
             </span>
             <div className="flex items-center gap-1">
-              <span className="text-amber-400">★</span>
+              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
               <span className="text-sm text-gray-300">{agent.avg_rating.toFixed(1)}</span>
             </div>
             <span className="text-xs text-gray-500">{agent.total_hires} hires</span>
@@ -276,7 +277,11 @@ export default function AgentDetailPage() {
             ratings.map((rating) => (
               <div key={rating.id} className="rounded-lg border border-gray-800 bg-gray-900/30 p-3">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-amber-400">{'★'.repeat(rating.score)}</span>
+                  <span className="flex gap-0.5">
+                    {Array.from({ length: rating.score }).map((_, i) => (
+                      <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                    ))}
+                  </span>
                   <span className="text-xs text-gray-500">
                     {new Date(rating.created_at).toLocaleDateString()}
                   </span>
@@ -296,9 +301,10 @@ export default function AgentDetailPage() {
                   <button
                     key={n}
                     onClick={() => setRatingScore(n)}
-                    className={`text-lg ${n <= ratingScore ? 'text-amber-400' : 'text-gray-700'}`}
+                    aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                    className={n <= ratingScore ? 'text-amber-400' : 'text-gray-700'}
                   >
-                    ★
+                    <Star className="h-5 w-5" fill="currentColor" />
                   </button>
                 ))}
               </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { Star, Plus, Wallet } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useIdentity } from '@/hooks/useIdentity';
 import { MiniAppShell } from '@/components/miniapp/MiniAppShell';
@@ -175,8 +176,9 @@ export default function DashboardPage() {
         </div>
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4">
           <p className="text-xs text-gray-500 uppercase tracking-wider">Avg Rating</p>
-          <p className="text-2xl font-bold text-amber-400 mt-1">
-            ★ {stats.avgRating.toFixed(1)}
+          <p className="flex items-center gap-1 text-2xl font-bold text-amber-400 mt-1">
+            <Star className="h-5 w-5 fill-amber-400" />
+            {stats.avgRating.toFixed(1)}
           </p>
         </div>
       </div>
@@ -249,7 +251,7 @@ export default function DashboardPage() {
                 href="/list"
                 className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-center"
               >
-                <span className="text-lg">➕</span>
+                <Plus className="h-5 w-5 mx-auto text-amber-400" strokeWidth={2.25} />
                 <p className="text-sm text-amber-400 mt-1">List New Agent</p>
               </Link>
               <button
@@ -257,7 +259,7 @@ export default function DashboardPage() {
                 title="Coming soon"
                 className="rounded-lg border border-gray-800 bg-gray-900/50 p-3 text-center opacity-50 cursor-not-allowed"
               >
-                <span className="text-lg">💰</span>
+                <Wallet className="h-5 w-5 mx-auto text-gray-500" strokeWidth={2} />
                 <p className="text-sm text-gray-300 mt-1">Withdraw</p>
               </button>
             </div>
@@ -308,8 +310,9 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Rating</p>
-                      <p className="text-sm font-medium text-amber-400">
-                        ★ {agent.avg_rating.toFixed(1)}
+                      <p className="flex items-center gap-1 text-sm font-medium text-amber-400">
+                        <Star className="h-3.5 w-3.5 fill-amber-400" />
+                        {agent.avg_rating.toFixed(1)}
                       </p>
                     </div>
                     <div>

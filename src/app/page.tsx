@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Bot, Search, Star } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { MiniAppShell } from '@/components/miniapp/MiniAppShell';
+import { CATEGORY_ICONS } from '@/lib/categories';
 
 interface Agent {
   id: string;
@@ -18,11 +20,11 @@ interface Agent {
 }
 
 const CATEGORIES = [
-  { id: 'all', label: 'All', icon: '🤖' },
-  { id: 'rebalancing', label: 'Rebalancing', icon: '⚖️' },
-  { id: 'grid_trading', label: 'Grid Trading', icon: '📈' },
-  { id: 'yield_optimisation', label: 'Yield', icon: '🌾' },
-  { id: 'health_factor', label: 'Health Factor', icon: '🛡️' },
+  { id: 'all', label: 'All', icon: Bot },
+  { id: 'rebalancing', label: 'Rebalancing', icon: CATEGORY_ICONS.rebalancing },
+  { id: 'grid_trading', label: 'Grid Trading', icon: CATEGORY_ICONS.grid_trading },
+  { id: 'yield_optimisation', label: 'Yield', icon: CATEGORY_ICONS.yield_optimisation },
+  { id: 'health_factor', label: 'Health Factor', icon: CATEGORY_ICONS.health_factor },
 ];
 
 function CategoryBadge({ category }: { category: string }) {
@@ -61,7 +63,7 @@ function PricingBadge({ type, value }: { type: string; value: number }) {
 function RatingStars({ rating, count }: { rating: number; count: number }) {
   return (
     <div className="flex items-center gap-1">
-      <span className="text-amber-400">★</span>
+      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
       <span className="text-sm text-gray-300">{rating.toFixed(1)}</span>
       <span className="text-xs text-gray-500">({count})</span>
     </div>
@@ -76,14 +78,7 @@ function AgentCard({ agent }: { agent: Agent }) {
     window.location.href = `/agent/${agent.id}`;
   };
 
-  const categoryIcon =
-    agent.category === 'rebalancing'
-      ? '⚖️'
-      : agent.category === 'grid_trading'
-      ? '📈'
-      : agent.category === 'yield_optimisation'
-      ? '🌾'
-      : '🛡️';
+  const CategoryIcon = CATEGORY_ICONS[agent.category] ?? Bot;
 
   return (
     <div
@@ -92,8 +87,8 @@ function AgentCard({ agent }: { agent: Agent }) {
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center text-lg">
-            {categoryIcon}
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center">
+            <CategoryIcon className="h-5 w-5 text-amber-400" strokeWidth={2} />
           </div>
           <div>
             <h3 className="font-semibold text-white">{agent.name}</h3>
@@ -181,7 +176,7 @@ export default function HomePage() {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full rounded-xl border border-gray-800 bg-gray-900/50 px-4 py-3 pl-10 text-sm text-white placeholder-gray-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
         />
-        <span className="absolute left-3 top-3.5 text-gray-500">🔍</span>
+        <Search className="absolute left-3 top-3.5 h-4 w-4 text-gray-500" />
       </div>
 
       {/* Categories */}
@@ -196,7 +191,7 @@ export default function HomePage() {
                 : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
             }`}
           >
-            <span>{cat.icon}</span>
+            <cat.icon className="h-3.5 w-3.5" strokeWidth={2.25} />
             {cat.label}
           </button>
         ))}

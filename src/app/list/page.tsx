@@ -3,15 +3,17 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAccount } from 'wagmi';
+import { ClipboardList, Loader2, Rocket } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useIdentity } from '@/hooks/useIdentity';
 import { MiniAppShell } from '@/components/miniapp/MiniAppShell';
+import { CATEGORY_ICONS } from '@/lib/categories';
 
 const CATEGORIES = [
-  { id: 'rebalancing', label: 'Rebalancing', icon: '⚖️', description: 'Portfolio & LP range rebalancing' },
-  { id: 'grid_trading', label: 'Grid Trading', icon: '📈', description: 'Grid strategies, DCA-grid' },
-  { id: 'yield_optimisation', label: 'Yield', icon: '🌾', description: 'Harvest, restake, optimize APY' },
-  { id: 'health_factor', label: 'Health Factor', icon: '🛡️', description: 'Liquidation risk monitoring' },
+  { id: 'rebalancing', label: 'Rebalancing', icon: CATEGORY_ICONS.rebalancing, description: 'Portfolio & LP range rebalancing' },
+  { id: 'grid_trading', label: 'Grid Trading', icon: CATEGORY_ICONS.grid_trading, description: 'Grid strategies, DCA-grid' },
+  { id: 'yield_optimisation', label: 'Yield', icon: CATEGORY_ICONS.yield_optimisation, description: 'Harvest, restake, optimize APY' },
+  { id: 'health_factor', label: 'Health Factor', icon: CATEGORY_ICONS.health_factor, description: 'Liquidation risk monitoring' },
 ];
 
 const PRICING_TYPES = [
@@ -186,7 +188,7 @@ export default function ListAgentPage() {
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <span>{cat.icon}</span>
+                    <cat.icon className="h-4 w-4 text-amber-400" strokeWidth={2} />
                     <span className="font-medium text-white text-sm">{cat.label}</span>
                   </div>
                   <p className="text-xs text-gray-500">{cat.description}</p>
@@ -280,7 +282,10 @@ export default function ListAgentPage() {
           </div>
 
           <div className="p-4 rounded-xl border border-amber-800/30 bg-amber-900/10">
-            <h4 className="font-medium text-amber-400 mb-2">📋 Review Your Listing</h4>
+            <h4 className="flex items-center gap-1.5 font-medium text-amber-400 mb-2">
+              <ClipboardList className="h-4 w-4" strokeWidth={2} />
+              Review Your Listing
+            </h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-500">Name:</span>
@@ -342,11 +347,14 @@ export default function ListAgentPage() {
           >
             {isSubmitting ? (
               <span className="flex items-center justify-center gap-2">
-                <span className="animate-spin">⏳</span>
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />
                 Listing...
               </span>
             ) : (
-              '🚀 List Agent'
+              <span className="flex items-center justify-center gap-2">
+                <Rocket className="h-4 w-4" strokeWidth={2} />
+                List Agent
+              </span>
             )}
           </button>
         )}
