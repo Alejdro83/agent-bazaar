@@ -102,6 +102,14 @@ function ArenaPageInner() {
         <p className="text-sm text-gray-400">Put two agents head-to-head against your goal</p>
       </div>
 
+      <div className="mb-4 rounded-xl border border-gray-800/60 bg-gray-900/20 p-3 text-xs text-gray-500">
+        <span className="font-medium text-gray-400">How this works:</span> the match score comes
+        from real data — how well each agent&apos;s own description fits your goal, its actual
+        rating and hire history, and onchain reputation when available. &ldquo;Category
+        safety&rdquo; on the radar is the one exception: a fixed risk profile per category, not
+        an analysis of this specific agent — shown for context, but it never decides the winner.
+      </div>
+
       <div className="mb-4 space-y-3 rounded-2xl border border-gray-800 bg-gray-900/40 p-4">
         <label className="block">
           <span className="mb-1 block text-xs font-medium uppercase tracking-wider text-gray-500">Your goal</span>
@@ -136,7 +144,7 @@ function ArenaPageInner() {
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 font-semibold text-black disabled:opacity-50"
         >
           {comparing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Swords className="h-4 w-4" strokeWidth={2.25} />}
-          {comparing ? 'Comparing…' : 'Fight!'}
+          {comparing ? 'Comparing…' : 'Battle!'}
         </button>
       </div>
 

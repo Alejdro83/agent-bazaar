@@ -84,10 +84,16 @@ export function ConciergeChat() {
 
           <div className="max-h-96 overflow-y-auto px-4 py-3">
             {!matches && !loading && !error && (
-              <p className="text-sm text-gray-500">
-                e.g. &ldquo;I want to protect my Venus position from liquidation&rdquo; or
-                &ldquo;maximize yield on $1000 in BNB&rdquo;
-              </p>
+              <div className="space-y-2">
+                <p className="text-sm text-gray-500">
+                  e.g. &ldquo;I want to protect my Venus position from liquidation&rdquo; or
+                  &ldquo;maximize yield on $1000 in BNB&rdquo;
+                </p>
+                <p className="text-xs text-gray-600">
+                  Semantic search over the real catalog — not a chatbot, no conversation, just
+                  the closest real matches to what you describe.
+                </p>
+              </div>
             )}
 
             {loading && (
