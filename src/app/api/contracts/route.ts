@@ -1,13 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createPublicClient, http, type Hex } from 'viem';
 import { createServiceClient } from '@/lib/supabase/service';
 import { identifyRequester } from '@/lib/auth/identify';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 
 /**
  * GET /api/contracts?role=buyer|seller — List the caller's contracts (dashboard)
- * POST /api/contracts — Create a new contract (hire an agent), with a real
- * onchain hire-record write — see src/lib/erc8004/recordHireOnchain.
+ * POST /api/contracts — Create a new contract (hire an agent).
+ *
+ * Payment: a wallet-identified buyer hiring a paid agent must submit a real,
+ * already-signed native BNB transfer to the seller's wallet — verified here
+ * against the chain before the contract is created. The amount is a small
+ * fixed testnet amount, not pricing_value converted via a price oracle
+ * (which is out of scope) — this proves real value moved from a real wallet
+ * the buyer controls, it does not claim to charge the exact listed USD
+ * price. Telegram-identified buyers (no signing capability without a
+ * connected wallet, out of scope for this pass) keep the previous
+ * behavior: a real operator-signed onchain hire-record write instead of a
+ * buyer payment — see recordHireOnchain below.
  */
+
+const BSC_TESTNET_RPC = 'https://data-seed-prebsc-2-s2.binance.org:8545';
+const MIN_PAYMENT_WEI = BigInt('100000000000000'); // 0.0001 BNB — trivial on testnet, but a real signed transfer
+
+async function verifyPayment(txHash: string, expectedTo: string): Promise<{ ok: boolean; error?: string }> {
+  if (!/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
+    return { ok: false, error: 'Malformed transaction hash' };
+  }
+  const client = createPublicClient({ transport: http(BSC_TESTNET_RPC) });
+  try {
+    const [receipt, tx] = await Promise.all([
+      client.getTransactionReceipt({ hash: txHash as Hex }),
+      client.getTransaction({ hash: txHash as Hex }),
+    ]);
+    if (receipt.status !== 'success') return { ok: false, error: 'Transaction did not succeed onchain' };
+    if (receipt.to?.toLowerCase() !== expectedTo.toLowerCase()) {
+      return { ok: false, error: 'Transaction was not sent to this agent\'s wallet' };
+    }
+    if (tx.value < MIN_PAYMENT_WEI) {
+      return { ok: false, error: 'Payment amount too low' };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'Could not verify transaction onchain (not found or RPC error)' };
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -59,7 +96,7 @@ export async function POST(request: NextRequest) {
     if (!body || typeof body !== 'object') {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
-    const { agent_id } = body;
+    const { agent_id, payment_tx_hash } = body;
 
     if (!agent_id) {
       return NextResponse.json({ error: 'Missing agent_id' }, { status: 400 });
@@ -87,10 +124,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create contract (no payment_tx_hash yet — see the onchain write below).
-    // Full x402/ERC-8183 escrow payment is out of scope (it would require the
-    // buyer to hold and approve a payment token, adding real friction to
-    // "hire with one click" — see src/lib/erc8004/recordHireOnchain).
+    // Real payment: wallet-identified buyer + paid agent must present an
+    // already-broadcast tx to the seller's wallet, verified onchain before
+    // the contract exists. Full x402/ERC-8183 escrow is still out of scope
+    // (it would require the buyer to hold and approve a payment token,
+    // adding real friction to "hire with one click").
+    const requiresPayment = requester.source === 'wallet' && agent.pricing_type !== 'free';
+    let verifiedPaymentTxHash: string | null = null;
+    if (requiresPayment) {
+      if (!payment_tx_hash || typeof payment_tx_hash !== 'string') {
+        return NextResponse.json({ error: 'This agent requires payment — no transaction hash provided' }, { status: 402 });
+      }
+      const verification = await verifyPayment(payment_tx_hash, agent.wallet_address);
+      if (!verification.ok) {
+        return NextResponse.json({ error: verification.error || 'Payment verification failed' }, { status: 402 });
+      }
+      verifiedPaymentTxHash = payment_tx_hash;
+    }
+
     const { data: contract, error: contractError } = await supabase
       .from('contracts')
       .insert({
@@ -101,6 +152,7 @@ export async function POST(request: NextRequest) {
         pricing_type: agent.pricing_type,
         pricing_value: agent.pricing_value,
         pricing_currency: agent.pricing_currency,
+        payment_tx_hash: verifiedPaymentTxHash,
         started_at: new Date().toISOString(),
         expires_at: agent.pricing_type === 'fixed'
           ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
@@ -122,11 +174,14 @@ export async function POST(request: NextRequest) {
 
     // Record the hire as a real onchain write (gas-free, operator-signed) on
     // the agent's ERC-8004 registration — a genuine, BscScan-verifiable tx.
-    // Best-effort: only agents actually registered onchain (Fase 4) carry an
-    // erc8004_id, and a transient RPC failure shouldn't block the hire the
-    // buyer already paid nothing extra for.
-    let paymentTxHash: string | null = null;
-    if (agent.erc8004_id) {
+    // Only needed when there's no real buyer payment to point to already
+    // (free agents, or Telegram-identified buyers who have no wallet payment
+    // path yet) — a verified buyer payment is strictly more meaningful than
+    // this stand-in, so don't overwrite it. Best-effort: only agents
+    // actually registered onchain (Fase 4) carry an erc8004_id, and a
+    // transient RPC failure shouldn't block a hire that already succeeded.
+    let paymentTxHash: string | null = verifiedPaymentTxHash;
+    if (!paymentTxHash && agent.erc8004_id) {
       try {
         const { recordHireOnchain } = await import('@/lib/erc8004');
         const record = await recordHireOnchain({
@@ -147,7 +202,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       contract: { ...contract, payment_tx_hash: paymentTxHash },
       payment: paymentTxHash
-        ? { tx_hash: paymentTxHash, network: 'BSC Testnet', status: 'confirmed' }
+        ? {
+            tx_hash: paymentTxHash,
+            network: 'BSC Testnet',
+            status: 'confirmed',
+            kind: verifiedPaymentTxHash ? 'buyer_payment' : 'onchain_record',
+          }
         : { tx_hash: null, network: 'BSC Testnet', status: 'unavailable' },
     }, { status: 201 });
   } catch (error) {

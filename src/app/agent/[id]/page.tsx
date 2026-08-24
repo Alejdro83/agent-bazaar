@@ -3,11 +3,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { useSendTransaction } from 'wagmi';
+import { parseEther } from 'viem';
 import { ArrowLeft, Bot, Star } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useIdentity } from '@/hooks/useIdentity';
 import { MiniAppShell } from '@/components/miniapp/MiniAppShell';
 import { CATEGORY_ICONS } from '@/lib/categories';
+
+// Trivial on testnet, but a real signed transfer — matches MIN_PAYMENT_WEI
+// in src/app/api/contracts/route.ts, which verifies this amount onchain.
+const PAYMENT_AMOUNT_BNB = '0.0001';
 
 interface Agent {
   id: string;
@@ -46,6 +52,7 @@ export default function AgentDetailPage() {
   const params = useParams();
   const { haptic, mainButton } = useTelegram();
   const { identity, isAuthenticated } = useIdentity();
+  const { sendTransactionAsync } = useSendTransaction();
   const [agent, setAgent] = useState<Agent | null>(null);
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,6 +116,26 @@ export default function AgentDetailPage() {
     setHireMessage(null);
 
     try {
+      // Paid agent + wallet identity: a real signed transfer to the seller's
+      // wallet is required before the contract exists — see
+      // src/app/api/contracts/route.ts's verifyPayment. Free agents and
+      // Telegram-identified buyers skip straight to the API call.
+      let paymentTxHash: string | undefined;
+      if (agent.pricing_type !== 'free' && identity.type === 'wallet') {
+        try {
+          paymentTxHash = await sendTransactionAsync({
+            to: agent.wallet_address as `0x${string}`,
+            value: parseEther(PAYMENT_AMOUNT_BNB),
+          });
+        } catch (txError) {
+          throw new Error(
+            txError instanceof Error && txError.message.includes('insufficient funds')
+              ? 'Insufficient testnet BNB — get some free from the BNB Chain faucet and try again'
+              : 'Payment was cancelled or failed'
+          );
+        }
+      }
+
       const res = await fetch('/api/contracts', {
         method: 'POST',
         headers: {
@@ -120,6 +147,7 @@ export default function AgentDetailPage() {
           pricing_type: agent.pricing_type,
           pricing_value: agent.pricing_value,
           pricing_currency: agent.pricing_currency,
+          payment_tx_hash: paymentTxHash,
         }),
       });
       const data = await res.json();
@@ -129,7 +157,9 @@ export default function AgentDetailPage() {
       haptic?.notificationOccurred('success');
       setHireMessage({
         type: 'success',
-        text: data.payment?.tx_hash
+        text: data.payment?.kind === 'buyer_payment'
+          ? `Paid and hired! Tx: ${data.payment.tx_hash.slice(0, 10)}…`
+          : data.payment?.tx_hash
           ? `Agent hired! Onchain record: ${data.payment.tx_hash.slice(0, 10)}…`
           : 'Agent hired!',
       });
@@ -139,7 +169,7 @@ export default function AgentDetailPage() {
     } finally {
       setHiring(false);
     }
-  }, [agent, identity, haptic]);
+  }, [agent, identity, haptic, sendTransactionAsync]);
 
   // Setup Main Button for hire. handleHire is a ref so the onClick/offClick
   // pair below always target the SAME function identity — registering a new
@@ -410,7 +440,13 @@ export default function AgentDetailPage() {
             disabled={hiring || !isAuthenticated}
             className="w-full mt-6 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {hiring ? 'Processing...' : !isAuthenticated ? 'Connect wallet to hire' : `Hire Agent`}
+            {hiring
+              ? (identity?.type === 'wallet' && agent.pricing_type !== 'free' ? 'Confirm in wallet…' : 'Processing...')
+              : !isAuthenticated
+              ? 'Connect wallet to hire'
+              : agent.pricing_type !== 'free' && identity?.type === 'wallet'
+              ? `Pay ${PAYMENT_AMOUNT_BNB} tBNB & Hire`
+              : 'Hire Agent'}
           </button>
         )
       )}
