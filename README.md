@@ -1,215 +1,162 @@
 # Agent Bazaar — AI Agent Marketplace on BNB Chain
 
-A Telegram Mini App marketplace for discovering, hiring, and managing AI agents on BNB Smart Chain. Built for the BNB Chain "Build the Era" hackathon.
+A Telegram Mini App + web marketplace for discovering, comparing, and hiring
+real AI agents on BNB Smart Chain. Built for BNB Chain's **"Build the Era"**
+hackathon (Aug 5 – Sep 9, 2026).
 
-## 🎯 Features
+**Live:** [agent-bazaar-wheat.vercel.app](https://agent-bazaar-wheat.vercel.app) · Bot: `@Bnb_mrkt_bot`
+**TermiX submission:** [`termix-report/AGENT_ADVANTAGE_REPORT.md`](./termix-report/AGENT_ADVANTAGE_REPORT.md)
 
-- **Telegram Mini App** — Full marketplace experience inside Telegram
-- **Bot Interface** — Entry point, notifications, quick commands
-- **Agent Discovery** — Browse by category, semantic search, filters
-- **Hire Flow** — x402 payments, Altana wallet permissions
-- **Seller Dashboard** — 3-step listing wizard, analytics
-- **BNB Chain Native** — ERC-8004 identity, x402 payments, BSC/opBNB support
+## What's real here
 
-## 🏗️ Architecture
+Every claim below is backed by something you can check yourself — a real
+transaction on BscScan, a real API response, real code. None of it is a
+scaffold or a mock left over from planning.
+
+- **40 real agents on BSC** — 32 indexed from live ERC-8004 identities via
+  8004scan (browse-only, they're real third-party agents we don't control),
+  8 of our own hireable listings. Evenly spread across the hackathon's 4
+  required categories: `rebalancing`, `grid_trading`, `yield_optimisation`,
+  `health_factor`.
+- **Real onchain agent registration** — listing an agent registers it on the
+  ERC-8004 Identity Registry on BSC testnet via `@bnbagent/sdk`, gas-free via
+  the MegaFuel paymaster. Real, BscScan-verifiable transaction, shown right
+  on the agent's page.
+- **Real buyer-signed payment** — hiring a paid agent (web, wallet-connected)
+  signs a real native BNB transfer to the seller's wallet, verified onchain
+  before the contract is created. (Telegram-identified hires currently keep
+  a real operator-signed onchain record instead — no wallet-signing path
+  from inside Telegram yet.)
+- **Semantic search (the Concierge)** — describe what you need in plain
+  language, get the top 3 real matches. Embeddings via Cloudflare Workers
+  AI (`bge-base-en-v1.5`, free tier — no OpenAI key), stored in Supabase
+  pgvector, falls back to keyword search if anything's unavailable.
+- **Agent Arena** — put two real agents head-to-head against a stated goal.
+  Every score is real data (objective-fit via the same embeddings, real
+  rating/hires/onchain reputation) except one clearly-labeled category-level
+  risk heuristic, which is excluded from the winner calculation on purpose.
+
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    TELEGRAM BOT (grammy)                     │
-│  /start → Mini App  |  /browse  |  /myagents  |  push notifs │
-└────────────────────────────┬────────────────────────────────┘
-                             │
-                    ┌────────▼────────┐
-                    │  MINI APP       │
-                    │  (Next.js 14)   │
-                    │  Browse/Search  │
-                    │  Agent Details  │
-                    │  Hire Flow      │
-                    │  Seller Wizard  │
-                    │  Dashboard      │
-                    └────────┬────────┘
-                             │
-                    ┌────────▼────────┐
-                    │   SUPABASE      │
-                    │  Postgres +     │
-                    │  pgvector +     │
-                    │  Realtime +     │
-                    │  Auth           │
-                    └─────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│              TELEGRAM BOT (grammy, Node 22, Northflank)       │
+│   /start → Mini App  |  /search  |  /browse  |  /myagents     │
+└────────────────────────────┬───────────────────────────────────┘
+                              │
+                     ┌────────▼────────┐
+                     │   NEXT.JS APP   │   Vercel — web + Mini App,
+                     │  (App Router)   │   same code, auto-detects context
+                     │  Browse/Search  │
+                     │  Concierge      │
+                     │  Arena          │
+                     │  Agent detail   │
+                     │  List / Hire    │
+                     │  Dashboard      │
+                     └────────┬────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+        ┌──────────┐   ┌────────────┐   ┌──────────────┐
+        │ SUPABASE │   │ BSC testnet│   │  Cloudflare  │
+        │ Postgres │   │ ERC-8004   │   │  Workers AI  │
+        │ + pgvector│  │ registry   │   │  (embeddings)│
+        └──────────┘   └────────────┘   └──────────────┘
 ```
 
-## 🛠️ Tech Stack
+## Tech stack
 
 | Layer | Technology |
-|-------|------------|
-| Frontend | Next.js 14 (App Router) + Tailwind CSS + shadcn/ui |
-| Mini App SDK | @telegram-apps/sdk-react |
-| Bot | grammy (TypeScript) |
-| Database | Supabase (Postgres + pgvector + Realtime) |
-| Wallet | RainbowKit + wagmi + viem (BNB Chain support) |
-| Search | pgvector embeddings (OpenAI text-embedding-3-small) |
-| Payments | x402 protocol (ERC-8183) |
-| Identity | ERC-8004 agent registry |
-| Deploy | Vercel (Mini App) + Railway/Render (Bot) |
+|---|---|
+| Frontend | Next.js 15.5 (App Router) + Tailwind CSS |
+| Bot | grammy (TypeScript), Node 22, deployed on Northflank |
+| Database | Supabase (Postgres + pgvector), service-role only — RLS locks `anon` to read-only |
+| Wallet | RainbowKit + wagmi + viem |
+| Semantic search | Cloudflare Workers AI embeddings + Supabase pgvector |
+| Onchain identity | ERC-8004 via `@bnbagent/sdk` (BSC testnet, gas-free via MegaFuel) |
+| Payments | Real buyer-signed native BNB transfer, verified onchain (not the full x402/ERC-8183 escrow protocol — see "Scope decisions" below) |
+| Deploy | Vercel (web/Mini App) + Northflank (bot) + UptimeRobot (monitoring) |
 
-## 🚀 Quick Start
+## Quick start
 
 ### Prerequisites
-- Node.js 20+
+- Node.js 22+
 - Supabase account
-- Telegram Bot (from @BotFather)
-- WalletConnect Project ID (for RainbowKit)
+- Telegram bot (from @BotFather)
+- WalletConnect Project ID
+- Cloudflare account (Workers AI, for the Concierge)
 
 ### Installation
 
 ```bash
-# Clone and install
-cd agent-bazaar
 npm install
+cp .env.example .env.local   # fill in your values
 
-# Copy environment
-cp .env.example .env.local
-# Fill in your values
-
-# Run dev servers
 npm run dev          # Next.js on localhost:3000
-npm run bot:dev      # Telegram bot (tsx watch)
+npm run bot:dev       # Telegram bot (tsx watch)
 ```
 
-### Environment Variables
+### Database setup
 
-| Variable | Description |
-|----------|-------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
-| `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather |
-| `TELEGRAM_BOT_USERNAME` | Bot username |
-| `NEXT_PUBLIC_TELEGRAM_MINI_APP_URL` | Deployed Mini App URL |
-| `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID` | WalletConnect Cloud project ID |
-
-### Database Setup
-
-1. Create a new Supabase project
-2. Run the schema in `supabase/schema.sql` in the SQL Editor
-3. Enable pgvector extension
-4. Add your keys to `.env.local`
-
-### Bot Setup
-
-1. Create bot with @BotFather
-2. Set commands:
-   ```
-   start - Welcome & open marketplace
-   browse - Browse agents by category
-   search - Search agents by keyword
-   myagents - View your active agents
-   help - Show help message
-   ```
-3. Set Mini App URL in BotFather: `Bot Settings → Menu Button → Configure`
-
-## 📁 Project Structure
-
-```
-agent-bazaar/
-├── src/
-│   ├── app/                    # Next.js App Router
-│   │   ├── api/                # API Routes
-│   │   │   └── agents/         # Agent CRUD endpoints
-│   │   ├── agent/[id]/         # Agent detail page
-│   │   ├── list/               # Seller listing wizard
-│   │   ├── layout.tsx          # Root layout
-│   │   ├── page.tsx            # Home/Browse page
-│   │   └── globals.css         # Global styles
-│   ├── bot/                    # Telegram Bot (grammy)
-│   │   └── index.ts
-│   ├── components/
-│   │   ├── providers/          # Context providers
-│   │   ├── miniapp/            # Mini App UI components
-│   │   └── dashboard/          # Seller dashboard
-│   ├── hooks/                  # Custom React hooks
-│   │   └── useTelegram.ts      # Telegram WebApp SDK hook
-│   ├── lib/                    # Utilities & clients
-│   │   └── supabase/           # Supabase clients
-│   └── types/                  # TypeScript types
-├── supabase/
-│   └── schema.sql              # Database schema
-├── .env.example
-├── package.json
-├── tsconfig.json
-├── next.config.js
-├── tailwind.config.ts
-└── postcss.config.js
+```bash
+npm run migrate -- schema   # applies supabase/schema.sql
+npm run migrate -- seed     # optional demo data
+npx tsx --env-file-if-exists=.env.local scripts/backfill-embeddings.ts   # index agents for the Concierge
 ```
 
-## 🔑 Key Integrations
+Migrations after the initial schema live in `supabase/migrations/` — apply
+them in order for an existing database.
 
-### ERC-8004 Agent Registry
-Agents are registered onchain with identity, reputation, and capabilities.
+## Project structure
 
-### x402 Payments
-Native HTTP-native payments — agent gets paid automatically on hire.
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── agents/            # CRUD + public listing
+│   │   ├── contracts/         # hire flow + payment verification
+│   │   ├── concierge/         # semantic search
+│   │   ├── arena/             # head-to-head comparison
+│   │   └── ratings/
+│   ├── agent/[id]/            # agent detail, hire, reviews
+│   ├── arena/                 # Agent Arena
+│   ├── list/                  # seller listing wizard
+│   ├── dashboard/             # seller dashboard
+│   └── profile/
+├── bot/                       # Telegram bot (grammy)
+├── components/
+│   ├── miniapp/                # shell, nav
+│   ├── concierge/              # floating chat
+│   └── arena/                  # selector, radar chart, comparison
+├── lib/
+│   ├── supabase/service.ts     # the one Supabase client (service-role)
+│   ├── erc8004/                 # onchain registration + hire records
+│   ├── embeddings/              # Cloudflare Workers AI client
+│   ├── eightoofourscan/         # real BSC agent catalog sync
+│   └── rate-limit/
+supabase/
+├── schema.sql
+└── migrations/
+scripts/
+├── sync-8004scan.ts             # real agent catalog sync (dry-run by default)
+└── backfill-embeddings.ts
+termix-report/                   # TermiX Agent Advantage Report + real outputs
+```
 
-### Altana Smart Wallet
-Self-custodial wallets with scoped permissions:
-- Spending limits
-- Allowlists (which contracts)
-- Time bounds
-- Onchain revocation
+## Scope decisions (so the gaps are obvious, not hidden)
 
-### BNB Chain Support
-- Mainnet (Chain ID: 56)
-- Testnet (Chain ID: 97)
-- opBNB L2 ready
+- **No full x402/ERC-8183 escrow.** That protocol needs the buyer to hold
+  and approve a payment token — real friction against "hire with minimal
+  friction," which the hackathon's own judging criteria call out as the
+  most important thing. What's here instead: a real signed BNB transfer,
+  verified onchain, for a fixed testnet amount (not `pricing_value`
+  converted through a price oracle — that's a real limitation, not hidden).
+- **Telegram-identified hires don't sign a payment yet** — no wallet inside
+  the Telegram WebView wired up in this pass. They still get a real
+  operator-signed onchain record instead of a mock hash.
+- **8004scan-indexed agents are browse-only.** They're real third-party
+  identities on BSC we don't control the execution/payment endpoint for.
 
-## 🎮 Hackathon Demo
+## License
 
-### Minimum Viable Demo
-1. **Bot**: `/start` → opens Mini App
-2. **Browse**: Search/filter agents in Mini App
-3. **Detail**: View agent capabilities, permissions, reviews
-4. **Hire**: Wallet connect → x402 payment → contract created
-5. **Seller**: 3-step wizard to list an agent
-
-### Seed Data
-Add 5-10 demo agents with realistic profiles before demo.
-
-## 📝 Development Notes
-
-### Adding New Agent Categories
-1. Update `agent_category` enum in `supabase/schema.sql`
-2. Update `CATEGORIES` array in `src/app/page.tsx`
-3. Add styling in `src/app/globals.css`
-
-### Adding New Pricing Types
-1. Update `pricing_type` enum in schema
-2. Update `PRICING_TYPES` in `src/app/list/page.tsx`
-3. Update UI components accordingly
-
-### Testing Mini App Locally
-1. Run `npm run dev`
-2. Use Telegram Web App testing via `@BotFather → Bot Settings → Mini App`
-3. Or use ngrok to expose localhost
-
-## 🤝 Contributing
-
-This is a hackathon project. Fork and adapt as needed.
-
-## 📄 License
-
-MIT — Build freely on BNB Chain.
-
----
-
-**Built for BNB Chain "Build the Era" Hackathon**  
-*Agent Bazaar — Where smart money meets smart agents*
-### WalletConnect Setup (Required for Demo)
-
-1. Go to [cloud.walletconnect.com](https://cloud.walletconnect.com)
-2. Sign up / Login
-3. Create a new project
-4. Copy the Project ID
-5. Add to :
-   
-
-**Note:** The app works with  projectId in development, but RainbowKit will show a warning. For hackathon demo, use a real projectId.
+MIT.
