@@ -1,0 +1,19 @@
+{
+  "task": "Grid spacing + level count for BNB/USDT given real last-24h volatility",
+  "data_source": "https://api.binance.com/api/v3/klines (live, 1h candles)",
+  "inputs": {
+    "current_price_usdt": 702.27,
+    "atr_24h_usdt": 5.284166666666654,
+    "spacing_atr_multiple": 0.5,
+    "range_pct": 0.05
+  },
+  "result": {
+    "grid_spacing_usdt": 2.642083333333327,
+    "grid_spacing_pct": 0.37622044702654633,
+    "range_low_usdt": 667.1564999999999,
+    "range_high_usdt": 737.3835,
+    "grid_levels": 27
+  },
+  "elapsed_ms": 416,
+  "timestamp": "2026-08-24T12:12:36.324Z"
+}

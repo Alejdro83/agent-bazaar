@@ -1,0 +1,18 @@
+{
+  "task": "Max safe borrow given $1000 BNB collateral (target health factor 1.5)",
+  "data_source": "https://api.venus.io/markets?chainId=56 (live, fetched at run time)",
+  "inputs": {
+    "collateral_usd": 1000,
+    "target_health_factor": 1.5,
+    "bnb_price_usd": 701.7663629010257,
+    "bnb_collateral_factor": 0.8,
+    "usdt_price_usd": 0.9998392529966591
+  },
+  "result": {
+    "bnb_collateral_amount": 1.4249756797491817,
+    "max_safe_borrow_usd": 533.3333333333334,
+    "max_safe_borrow_usdt": 533.4190788517836
+  },
+  "elapsed_ms": 352,
+  "timestamp": "2026-08-24T12:11:12.147Z"
+}
