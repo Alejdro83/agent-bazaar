@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Bot, Search, Star } from 'lucide-react';
+import { Bot, Search, Star, ShieldCheck, TrendingUp } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { MiniAppShell } from '@/components/miniapp/MiniAppShell';
 import { CATEGORY_ICONS } from '@/lib/categories';
+import { summarizeSignal } from '@/lib/market/format';
+import type { AgentSignal } from '@/lib/market/signals';
 
 function timeAgo(isoDate: string): string {
   const seconds = Math.floor((Date.now() - new Date(isoDate).getTime()) / 1000);
@@ -28,6 +30,13 @@ interface Agent {
   total_hires: number;
   status: string;
   avatar_url: string | null;
+  source: string;
+  erc8004_data: {
+    star_count?: number;
+    total_feedbacks?: number;
+    is_verified?: boolean;
+    supported_protocols?: string[];
+  } | null;
 }
 
 const CATEGORIES = [
@@ -81,6 +90,50 @@ function RatingStars({ rating, count }: { rating: number; count: number }) {
   );
 }
 
+/** Real, category-specific live number for our own hireable agents — see src/lib/market/signals.ts. */
+function LiveSignalLine({ agentId, category }: { agentId: string; category: string }) {
+  const [text, setText] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/market/signal?agent_id=${agentId}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data: { signal: AgentSignal }) => {
+        if (!cancelled) setText(summarizeSignal(category, data.signal));
+      })
+      .catch(() => {
+        // Best-effort — a card without a live signal still shows everything else.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId, category]);
+
+  if (!text) return null;
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-emerald-400 mb-2">
+      <TrendingUp className="h-3 w-3 shrink-0" strokeWidth={2} />
+      <span className="truncate">{text}</span>
+    </div>
+  );
+}
+
+/** Real onchain reputation for 8004scan-indexed agents — already fetched, no extra call. */
+function ReputationLine({ data }: { data: NonNullable<Agent['erc8004_data']> }) {
+  if (!data.total_feedbacks && !data.star_count) return null;
+  return (
+    <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+      {data.is_verified && (
+        <span className="flex items-center gap-1 text-blue-400">
+          <ShieldCheck className="h-3 w-3" strokeWidth={2} /> Verified
+        </span>
+      )}
+      {!!data.star_count && <span>★ {data.star_count}</span>}
+      {!!data.total_feedbacks && <span>{data.total_feedbacks} onchain feedbacks</span>}
+    </div>
+  );
+}
+
 function AgentCard({ agent }: { agent: Agent }) {
   const { haptic } = useTelegram();
 
@@ -112,6 +165,9 @@ function AgentCard({ agent }: { agent: Agent }) {
       <p className="text-sm text-gray-400 mb-3 line-clamp-2">
         {agent.description}
       </p>
+
+      {agent.source === 'user' && <LiveSignalLine agentId={agent.id} category={agent.category} />}
+      {agent.source === '8004scan' && agent.erc8004_data && <ReputationLine data={agent.erc8004_data} />}
 
       <div className="flex items-center justify-between">
         <RatingStars rating={agent.avg_rating} count={agent.total_hires} />

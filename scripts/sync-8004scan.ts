@@ -89,9 +89,11 @@ async function main() {
   const args = process.argv.slice(2);
   const commit = args.includes('--commit');
   const mainnetOnly = args.includes('--mainnet-only');
+  const limitArg = args.find((a) => a.startsWith('--limit='));
+  const perCategoryLimit = limitArg ? parseInt(limitArg.split('=')[1], 10) : undefined;
 
   console.log(`Fetching candidates from 8004scan (${mainnetOnly ? 'mainnet only' : 'mainnet + testnet'})...`);
-  const { byCategory, rejectedCount } = await findCandidates({ includeTestnet: !mainnetOnly });
+  const { byCategory, rejectedCount } = await findCandidates({ includeTestnet: !mainnetOnly, perCategoryLimit });
 
   printShortlist(byCategory, rejectedCount);
 

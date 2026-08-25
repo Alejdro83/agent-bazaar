@@ -2,14 +2,16 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useSendTransaction } from 'wagmi';
 import { parseEther } from 'viem';
-import { ArrowLeft, Bot, Star } from 'lucide-react';
+import { ArrowLeft, Bot, Star, TrendingUp, RefreshCw } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useIdentity } from '@/hooks/useIdentity';
 import { MiniAppShell } from '@/components/miniapp/MiniAppShell';
 import { CATEGORY_ICONS } from '@/lib/categories';
+import { summarizeSignal } from '@/lib/market/format';
+import type { AgentSignal } from '@/lib/market/signals';
 
 // Trivial on testnet, but a real signed transfer — matches MIN_PAYMENT_WEI
 // in src/app/api/contracts/route.ts, which verifies this amount onchain.
@@ -35,6 +37,13 @@ interface Agent {
   onchain_reputation: number | null;
   external_agent_id: string | null;
   erc8004_id: string | null;
+  erc8004_data: {
+    star_count?: number;
+    total_feedbacks?: number;
+    is_verified?: boolean;
+    supported_protocols?: string[];
+    x402_supported?: boolean;
+  } | null;
   onchain_tx_hash: string | null;
   total_revenue: number;
   created_at: string;
@@ -50,6 +59,7 @@ interface Rating {
 
 export default function AgentDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const { haptic, mainButton } = useTelegram();
   const { identity, isAuthenticated } = useIdentity();
   const { sendTransactionAsync } = useSendTransaction();
@@ -64,6 +74,8 @@ export default function AgentDetailPage() {
   const [ratingComment, setRatingComment] = useState('');
   const [submittingRating, setSubmittingRating] = useState(false);
   const [ratingMessage, setRatingMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [signal, setSignal] = useState<AgentSignal | null>(null);
+  const [signalError, setSignalError] = useState(false);
 
   const handleSubmitRating = async () => {
     if (!agent || !identity) return;
@@ -98,6 +110,12 @@ export default function AgentDetailPage() {
         if (!res.ok) throw new Error('Agent not found');
         const data = await res.json();
         setAgent(data.agent);
+        if (data.agent.source === 'user') {
+          fetch(`/api/market/signal?agent_id=${data.agent.id}`)
+            .then((r) => (r.ok ? r.json() : Promise.reject()))
+            .then((d: { signal: AgentSignal }) => setSignal(d.signal))
+            .catch(() => setSignalError(true));
+        }
         setRatings(data.ratings);
       } catch (err) {
         setError('Agent not found');
@@ -155,21 +173,16 @@ export default function AgentDetailPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to create contract');
 
       haptic?.notificationOccurred('success');
-      setHireMessage({
-        type: 'success',
-        text: data.payment?.kind === 'buyer_payment'
-          ? `Paid and hired! Tx: ${data.payment.tx_hash.slice(0, 10)}…`
-          : data.payment?.tx_hash
-          ? `Agent hired! Onchain record: ${data.payment.tx_hash.slice(0, 10)}…`
-          : 'Agent hired!',
-      });
+      // Take the buyer straight to the agent's real output instead of
+      // leaving them on a toast with nothing to look at — see src/app/hire/[contractId]/page.tsx.
+      router.push(`/hire/${data.contract.id}`);
     } catch (err) {
       haptic?.notificationOccurred('error');
       setHireMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to hire agent' });
     } finally {
       setHiring(false);
     }
-  }, [agent, identity, haptic, sendTransactionAsync]);
+  }, [agent, identity, haptic, sendTransactionAsync, router]);
 
   // Setup Main Button for hire. handleHire is a ref so the onClick/offClick
   // pair below always target the SAME function identity — registering a new
@@ -269,6 +282,43 @@ export default function AgentDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Live signal — real market data combined with this agent's own strategy, see src/lib/market/signals.ts */}
+      {agent.source === 'user' && (
+        <div className="rounded-xl border border-emerald-900/40 bg-emerald-900/10 p-4 mb-6">
+          <div className="flex items-center gap-1.5 mb-2">
+            <TrendingUp className="h-4 w-4 text-emerald-400" strokeWidth={2} />
+            <p className="text-xs text-emerald-400 uppercase tracking-wider font-medium">Live signal</p>
+          </div>
+          {signal ? (
+            <>
+              <p className="text-white font-medium mb-1">{summarizeSignal(agent.category, signal)}</p>
+              <p className="text-xs text-gray-500">{signal.task}</p>
+              <div className="flex items-center justify-between mt-2 text-xs text-gray-600">
+                <span>
+                  Source:{' '}
+                  <a
+                    href={signal.data_sources[0]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-400 hover:text-gray-300 underline"
+                  >
+                    {new URL(signal.data_sources[0]).hostname}
+                  </a>
+                </span>
+                <span className="flex items-center gap-1">
+                  <RefreshCw className="h-3 w-3" strokeWidth={2} />
+                  {new Date(signal.timestamp).toLocaleTimeString()} · {signal.elapsed_ms}ms
+                </span>
+              </div>
+            </>
+          ) : signalError ? (
+            <p className="text-sm text-gray-500">Live signal temporarily unavailable — try again shortly.</p>
+          ) : (
+            <p className="text-sm text-gray-500">Computing from live market data…</p>
+          )}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex border-b border-gray-800 mb-4">
@@ -386,10 +436,23 @@ export default function AgentDetailPage() {
           </div>
           {agent.source === '8004scan' && (
             <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-3">
-              <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Onchain Reputation</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Onchain Reputation (8004scan)</p>
               <p className="text-sm text-gray-300">
-                {agent.onchain_reputation !== null ? agent.onchain_reputation.toFixed(2) : '—'}
+                Average score: {agent.onchain_reputation !== null ? agent.onchain_reputation.toFixed(2) : '—'}
               </p>
+              {agent.erc8004_data && (
+                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
+                  {!!agent.erc8004_data.star_count && <span>★ {agent.erc8004_data.star_count} stars</span>}
+                  {!!agent.erc8004_data.total_feedbacks && (
+                    <span>{agent.erc8004_data.total_feedbacks} onchain feedbacks</span>
+                  )}
+                  {agent.erc8004_data.is_verified && <span className="text-blue-400">✓ Verified identity</span>}
+                  {agent.erc8004_data.x402_supported && <span>x402 payments supported</span>}
+                  {!!agent.erc8004_data.supported_protocols?.length && (
+                    <span>Protocols: {agent.erc8004_data.supported_protocols.join(', ')}</span>
+                  )}
+                </div>
+              )}
             </div>
           )}
           {agent.source === 'user' && (

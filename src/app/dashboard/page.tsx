@@ -53,7 +53,8 @@ export default function DashboardPage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'agents' | 'contracts'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'agents' | 'contracts' | 'hired'>('overview');
+  const [hiredContracts, setHiredContracts] = useState<Contract[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchDashboard = useCallback(async () => {
@@ -61,17 +62,20 @@ export default function DashboardPage() {
     setError(null);
 
     try {
-      const [agentsRes, contractsRes] = await Promise.all([
+      const [agentsRes, contractsRes, hiredRes] = await Promise.all([
         fetch('/api/agents?seller=me', { headers: identity.authHeader }),
         fetch('/api/contracts?role=seller', { headers: identity.authHeader }),
+        fetch('/api/contracts?role=buyer', { headers: identity.authHeader }),
       ]);
 
-      if (!agentsRes.ok || !contractsRes.ok) {
+      if (!agentsRes.ok || !contractsRes.ok || !hiredRes.ok) {
         throw new Error('Failed to load dashboard data');
       }
 
       const agentsData = await agentsRes.json();
       const contractsData = await contractsRes.json();
+      const hiredData = await hiredRes.json();
+      setHiredContracts(hiredData.contracts || []);
       // 'seller=me' intentionally returns every status (drafts included), but
       // 'archived' means the seller deleted it — the dashboard shouldn't show
       // a "deleted" listing back to them as if nothing happened.
@@ -213,7 +217,7 @@ export default function DashboardPage() {
 
       {/* Tabs */}
       <div className="flex border-b border-gray-800 mb-4">
-        {(['overview', 'agents', 'contracts'] as const).map((tab) => (
+        {(['overview', 'agents', 'contracts', 'hired'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -418,6 +422,46 @@ export default function DashboardPage() {
                   </p>
                 )}
               </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {activeTab === 'hired' && (
+        <div className="space-y-3">
+          {hiredContracts.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500 mb-4">You haven&apos;t hired any agents yet</p>
+              <Link href="/" className="inline-block rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-2 text-black font-semibold">
+                Browse agents
+              </Link>
+            </div>
+          ) : (
+            hiredContracts.map((contract) => (
+              <Link
+                key={contract.id}
+                href={`/hire/${contract.id}`}
+                className="block rounded-xl border border-gray-800 bg-gray-900/50 p-4 hover:border-amber-500/30 transition-colors"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <p className="font-medium text-white">Contract #{contract.id.slice(0, 8)}</p>
+                    <p className="text-xs text-gray-500">
+                      Hired {contract.started_at ? new Date(contract.started_at).toLocaleDateString() : ''}
+                    </p>
+                  </div>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full ${
+                      contract.status === 'active'
+                        ? 'bg-green-900/30 text-green-400'
+                        : 'bg-gray-900/30 text-gray-400'
+                    }`}
+                  >
+                    {contract.status}
+                  </span>
+                </div>
+                <p className="text-sm text-amber-400">View agent output →</p>
+              </Link>
             ))
           )}
         </div>

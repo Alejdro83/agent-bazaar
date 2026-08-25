@@ -51,7 +51,7 @@ export async function findCandidates(options?: {
   for (const chainId of chainIds) {
     for (const terms of Object.values(SEARCH_TERMS_BY_CATEGORY)) {
       for (const term of terms) {
-        const items = await listAllAgents({ chainId, search: term }, 100);
+        const items = await listAllAgents({ chainId, search: term }, 300);
         for (const item of items) {
           if (!seen.has(item.id)) seen.set(item.id, item);
         }

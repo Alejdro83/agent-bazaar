@@ -3,10 +3,14 @@ import { createPublicClient, http, type Hex } from 'viem';
 import { createServiceClient } from '@/lib/supabase/service';
 import { identifyRequester } from '@/lib/auth/identify';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
+import { computeAgentSignal } from '@/lib/market/signals';
+import type { Json } from '@/types/database';
 
 /**
  * GET /api/contracts?role=buyer|seller — List the caller's contracts (dashboard)
- * POST /api/contracts — Create a new contract (hire an agent).
+ * POST /api/contracts — Create a new contract (hire an agent). Also runs the
+ * agent's real analysis and attaches it as the contract's deliverable — see
+ * src/app/api/contracts/[id]/route.ts for how a buyer reads it back.
  *
  * Payment: a wallet-identified buyer hiring a paid agent must submit a real,
  * already-signed native BNB transfer to the seller's wallet — verified here
@@ -105,7 +109,7 @@ export async function POST(request: NextRequest) {
     // Fetch agent to get seller_id and wallet
     const { data: agent, error: agentError } = await supabase
       .from('agents')
-      .select('id, seller_id, wallet_address, pricing_type, pricing_value, pricing_currency, source, erc8004_id')
+      .select('id, seller_id, wallet_address, pricing_type, pricing_value, pricing_currency, source, erc8004_id, category, metadata')
       .eq('id', agent_id)
       .eq('status', 'active')
       .single();
@@ -172,6 +176,27 @@ export async function POST(request: NextRequest) {
     // Update agent stats
     await supabase.rpc('update_agent_stats', { p_agent_id: agent.id });
 
+    // The actual deliverable: run the agent's real analysis (same live
+    // Venus/Binance/DefiLlama computation shown as a preview on the listing
+    // page, see src/lib/market/signals.ts) against its own strategy config,
+    // and attach the output to the contract — this is what a buyer (or a
+    // judge hiring through the marketplace) gets back, not just a receipt.
+    // Best-effort: an upstream data-source hiccup shouldn't fail a hire that
+    // already succeeded and, for paid agents, already collected payment.
+    let output: Json | null = null;
+    if (agent.metadata) {
+      try {
+        const signal = await computeAgentSignal({ category: agent.category, metadata: agent.metadata });
+        output = JSON.parse(JSON.stringify(signal)) as Json;
+        await supabase
+          .from('contracts')
+          .update({ metadata: { output } })
+          .eq('id', contract.id);
+      } catch (runError) {
+        console.error('Agent run error (non-blocking):', runError);
+      }
+    }
+
     // Record the hire as a real onchain write (gas-free, operator-signed) on
     // the agent's ERC-8004 registration — a genuine, BscScan-verifiable tx.
     // Only needed when there's no real buyer payment to point to already
@@ -200,7 +225,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      contract: { ...contract, payment_tx_hash: paymentTxHash },
+      contract: { ...contract, payment_tx_hash: paymentTxHash, metadata: output ? { output } : contract.metadata },
       payment: paymentTxHash
         ? {
             tx_hash: paymentTxHash,

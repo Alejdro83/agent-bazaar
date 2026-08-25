@@ -20,7 +20,7 @@ export async function GET(
     const { data: agent, error } = await supabase
       .from('agents')
       .select(
-        'id, name, description, category, subcategory, pricing_type, pricing_value, pricing_currency, wallet_address, status, avatar_url, total_hires, avg_rating, total_revenue, source, chain_id, is_testnet, onchain_reputation, external_agent_id, erc8004_id, onchain_tx_hash, created_at'
+        'id, name, description, category, subcategory, pricing_type, pricing_value, pricing_currency, wallet_address, status, avatar_url, total_hires, avg_rating, total_revenue, source, chain_id, is_testnet, onchain_reputation, external_agent_id, erc8004_id, erc8004_data, onchain_tx_hash, metadata, created_at'
       )
       .eq('id', id)
       .single();
