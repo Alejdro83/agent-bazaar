@@ -10,8 +10,9 @@ import { useTelegram } from '@/hooks/useTelegram';
 import { useIdentity } from '@/hooks/useIdentity';
 import { MiniAppShell } from '@/components/miniapp/MiniAppShell';
 import { CATEGORY_ICONS } from '@/lib/categories';
-import { summarizeSignal, summarizeTrackRecord } from '@/lib/market/format';
+import { summarizeSignal } from '@/lib/market/format';
 import type { AgentSignal } from '@/lib/market/signals';
+import { TrackRecordCard } from '@/components/agent/TrackRecordCard';
 
 // Trivial on testnet, but a real signed transfer — matches MIN_PAYMENT_WEI
 // in src/app/api/contracts/route.ts, which verifies this amount onchain.
@@ -324,11 +325,11 @@ export default function AgentDetailPage() {
       {/* Track record — real historical backtest, explicitly not live capital, see src/lib/market/backtest.ts */}
       {agent.source === 'user' && agent.metadata?.track_record && (
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4 mb-6">
-          <p className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-1">
+          <p className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-3">
             Track record — backtest, not live capital
           </p>
-          <p className="text-white font-medium mb-1">{summarizeTrackRecord(agent.metadata.track_record)}</p>
-          <p className="text-xs text-gray-600">
+          <TrackRecordCard trackRecord={agent.metadata.track_record} />
+          <p className="text-xs text-gray-600 mt-3">
             {String(agent.metadata.track_record.window)} · real historical data, reproducible
           </p>
         </div>
