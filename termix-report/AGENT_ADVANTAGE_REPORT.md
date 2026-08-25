@@ -19,6 +19,22 @@ mocked numbers). Task 1 is the required trading/security task.
 
 Full methodology, real contract IDs, real outputs, and honest limitations below.
 
+### Cost and output quality, per task
+
+Time is in the summary table above; cost and output quality (the other two
+dimensions this report is scored against) are broken out here explicitly.
+
+| # | Manual cost | Hired cost (real listed price) | Manual output | Hired output |
+|---|---|---|---|---|
+| 1 | $0 (your own time; free tools) | $8/mo fixed — VenusGuard's real listed price | A single number (max borrow), if the user remembers to apply *any* safety margin — no record of how it was derived | Structured JSON: max safe borrow, the liquidation edge it's measured against, and the exact safety margin in dollars — timestamped, sourced, reproducible |
+| 2 | $0 (your own time; free tools) | 0.5% of yield generated — BeefyHarvester v2's real listed price | Two numbers jotted down manually, already stale by the time both are checked | Structured JSON: every candidate ranked by real APY, TVL context, winner flagged — all captured at the same instant |
+| 3 | $0 (your own time; free tools) | Free tier — DCA GridBot's real listed price | Either no output (skipped) or a rough eyeballed range with no stated method | Structured JSON: exact grid spacing, level count, and range bounds, derived from a named, reproducible ATR calculation |
+
+Cost note: as disclosed in the Methodology below, VenusGuard's and
+BeefyHarvester's normal paid price was temporarily waived to complete these
+specific hires without a funded test wallet — the cost column above reports
+what a real buyer actually pays, not what this report paid.
+
 ---
 
 ## Methodology
