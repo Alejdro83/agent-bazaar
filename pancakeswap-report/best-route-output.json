@@ -1,0 +1,38 @@
+[
+  {
+    "label": "Swap 1 BNB → CAKE",
+    "data_source": "PancakeSwap V3 pools, live on-chain via @pancakeswap/smart-router (InfinityRouter) — no subgraph, no API key",
+    "real_candidate_pools_fetched": 81,
+    "input": {
+      "amount": 1,
+      "symbol": "BNB"
+    },
+    "output": {
+      "amount": 404.3321989245691,
+      "symbol": "CAKE"
+    },
+    "implied_price": "404.332199 CAKE per BNB",
+    "route_legs": 2,
+    "gas_use_estimate": "164000",
+    "elapsed_ms": 4280,
+    "timestamp": "2026-08-25T23:00:52.778Z"
+  },
+  {
+    "label": "Swap 100 USDT → CAKE",
+    "data_source": "PancakeSwap V3 pools, live on-chain via @pancakeswap/smart-router (InfinityRouter) — no subgraph, no API key",
+    "real_candidate_pools_fetched": 65,
+    "input": {
+      "amount": 100,
+      "symbol": "USDT"
+    },
+    "output": {
+      "amount": 58.03006321709687,
+      "symbol": "CAKE"
+    },
+    "implied_price": "0.580301 CAKE per USDT",
+    "route_legs": 1,
+    "gas_use_estimate": "164000",
+    "elapsed_ms": 1745,
+    "timestamp": "2026-08-25T23:00:54.523Z"
+  }
+]
