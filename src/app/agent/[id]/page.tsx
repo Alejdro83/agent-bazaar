@@ -503,7 +503,7 @@ export default function AgentDetailPage() {
 
       {agent.source === '8004scan' ? (
         <a
-          href={`https://8004scan.io/agents/${agent.external_agent_id}`}
+          href={`https://8004scan.io/agents/${agent.is_testnet ? 'bsc-testnet' : 'bsc'}/${agent.external_agent_id?.split(':').pop()}`}
           target="_blank"
           rel="noopener noreferrer"
           className="block w-full mt-6 rounded-xl border border-gray-700 py-3 text-center text-white font-semibold hover:bg-gray-900/50 transition-colors"
