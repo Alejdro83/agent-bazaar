@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Bot, Search, Star, ShieldCheck, TrendingUp } from 'lucide-react';
+import { Bot, Search, Star, ShieldCheck, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { MiniAppShell } from '@/components/miniapp/MiniAppShell';
 import { CATEGORY_ICONS } from '@/lib/categories';
@@ -179,11 +179,15 @@ function AgentCard({ agent }: { agent: Agent }) {
   );
 }
 
+const PAGE_SIZE = 20;
+
 export default function HomePage() {
   const { user, isLoading } = useTelegram();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
@@ -196,13 +200,15 @@ export default function HomePage() {
       const params = new URLSearchParams();
       if (selectedCategory !== 'all') params.set('category', selectedCategory);
       if (searchQuery) params.set('search', searchQuery);
-      params.set('limit', '20');
+      params.set('limit', String(PAGE_SIZE));
+      params.set('offset', String((page - 1) * PAGE_SIZE));
 
       const res = await fetch(`/api/agents?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch agents');
 
       const data = await res.json();
       setAgents(data.agents);
+      setTotal(data.total ?? 0);
       if (data.last_synced_at) setLastSyncedAt(data.last_synced_at);
     } catch (err) {
       console.error('Fetch error:', err);
@@ -210,11 +216,19 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedCategory, searchQuery]);
+  }, [selectedCategory, searchQuery, page]);
 
   useEffect(() => {
     fetchAgents();
   }, [fetchAgents]);
+
+  // Changing the filter/search invalidates the current page — go back to 1
+  // instead of e.g. showing an empty "page 3" of a 1-page result set.
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCategory, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   if (isLoading) {
     return (
@@ -315,11 +329,29 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Results count */}
+      {/* Pagination */}
       {!loading && agents.length > 0 && (
-        <p className="text-center text-gray-600 text-xs mt-4">
-          Showing {agents.length} agents
-        </p>
+        <div className="flex items-center justify-center gap-4 mt-4">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="flex items-center gap-1 text-xs text-gray-400 disabled:text-gray-700 disabled:cursor-not-allowed hover:text-amber-400"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.25} />
+            Prev
+          </button>
+          <p className="text-center text-gray-600 text-xs">
+            Page {page} of {totalPages} · {total} agents
+          </p>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="flex items-center gap-1 text-xs text-gray-400 disabled:text-gray-700 disabled:cursor-not-allowed hover:text-amber-400"
+          >
+            Next
+            <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.25} />
+          </button>
+        </div>
       )}
     </MiniAppShell>
   );

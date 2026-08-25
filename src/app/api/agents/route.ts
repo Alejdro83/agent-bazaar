@@ -76,9 +76,15 @@ export async function GET(request: NextRequest) {
       query = query.textSearch('search_vector', search, { type: 'websearch' });
     }
 
-    // Sort and paginate
+    // Sort and paginate. The vast majority of agents tie on total_hires=0,
+    // and Postgres doesn't guarantee stable ordering across separate
+    // LIMIT/OFFSET calls for tied rows without a deterministic tiebreaker —
+    // without `id` here, pages could repeat or skip agents between requests.
+    // `id` is a random UUID (not insertion order), but any fixed column
+    // works as a tiebreaker; it only needs to be consistent, not meaningful.
     query = query
       .order(sort, { ascending: order === 'asc' })
+      .order('id', { ascending: true })
       .range(offset, offset + limit - 1);
 
     const { data: agents, error, count } = await query;
