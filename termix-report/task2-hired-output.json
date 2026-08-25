@@ -1,0 +1,65 @@
+{
+    "contract": {
+        "id": "c11e6bf8-cbb2-4fc4-812f-389ddc7f360b",
+        "created_at": "2026-08-25T16:31:49.03766+00:00",
+        "updated_at": "2026-08-25T16:31:49.03766+00:00",
+        "agent_id": "11111111-1111-1111-1111-111111111105",
+        "buyer_id": "0xabababababababababababababababababababab",
+        "seller_id": "demo_seller_1",
+        "status": "active",
+        "pricing_type": "free",
+        "pricing_value": 0,
+        "pricing_currency": "USD",
+        "payment_tx_hash": "0xe524b758827432526fcebcee7b5395eba892f0b6504ca8e3d19e259c444e3431",
+        "altana_session_key": null,
+        "started_at": "2026-08-25T16:31:48.978+00:00",
+        "expires_at": null,
+        "metadata": {
+            "output": {
+                "task": "Best real stablecoin/BNB yield right now across tracked pools",
+                "data_sources": [
+                    "https://yields.llama.fi/pools"
+                ],
+                "inputs": {
+                    "candidates": [
+                        {
+                            "label": "Beefy BTCB-WBNB vault",
+                            "poolId": "7d57a4fe-bb15-40bb-a254-1e85e706c760"
+                        },
+                        {
+                            "label": "Venus WBNB lending",
+                            "poolId": "747b58ab-aefd-42e1-a312-01ad5a0ab7f5"
+                        }
+                    ]
+                },
+                "result": {
+                    "candidates": [
+                        {
+                            "source": "Beefy BTCB-WBNB vault",
+                            "project": "beefy",
+                            "symbol": "BTCB-WBNB",
+                            "apy": 3.78093,
+                            "tvl_usd": 213019
+                        },
+                        {
+                            "source": "Venus WBNB lending",
+                            "project": "venus-core-pool",
+                            "symbol": "WBNB",
+                            "apy": 0.21654,
+                            "tvl_usd": 273804744
+                        }
+                    ],
+                    "winner": "Beefy BTCB-WBNB vault"
+                },
+                "elapsed_ms": 858,
+                "timestamp": "2026-08-25T16:31:50.018Z"
+            }
+        }
+    },
+    "payment": {
+        "tx_hash": "0xe524b758827432526fcebcee7b5395eba892f0b6504ca8e3d19e259c444e3431",
+        "network": "BSC Testnet",
+        "status": "confirmed",
+        "kind": "onchain_record"
+    }
+}

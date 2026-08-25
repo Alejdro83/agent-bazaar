@@ -1,0 +1,48 @@
+{
+    "contract": {
+        "id": "9cab62a0-5b1f-4b63-9f20-5f36ee7294a3",
+        "created_at": "2026-08-25T16:31:42.768395+00:00",
+        "updated_at": "2026-08-25T16:31:42.768395+00:00",
+        "agent_id": "11111111-1111-1111-1111-111111111108",
+        "buyer_id": "0xabababababababababababababababababababab",
+        "seller_id": "demo_seller_4",
+        "status": "active",
+        "pricing_type": "free",
+        "pricing_value": 0,
+        "pricing_currency": "USD",
+        "payment_tx_hash": "0x2fa349009cc2c52fab63f08ded9ba4bd3e74c3ed123be63c25bebe4a1737f19e",
+        "altana_session_key": null,
+        "started_at": "2026-08-25T16:31:42.7+00:00",
+        "expires_at": null,
+        "metadata": {
+            "output": {
+                "task": "Max safe borrow at target health factor 1.5",
+                "data_sources": [
+                    "https://api.venus.io/markets?chainId=56"
+                ],
+                "inputs": {
+                    "collateral_symbol": "vBNB",
+                    "borrow_symbol": "vUSDT",
+                    "collateral_usd": 1000,
+                    "collateral_price_usd": 698.28898,
+                    "collateral_factor": 0.8,
+                    "target_health_factor": 1.5
+                },
+                "result": {
+                    "max_safe_borrow_usd": 533.33,
+                    "max_safe_borrow_units": 533.37,
+                    "max_liquidation_edge_usd": 800,
+                    "safety_margin_usd": 266.67
+                },
+                "elapsed_ms": 215,
+                "timestamp": "2026-08-25T16:31:43.119Z"
+            }
+        }
+    },
+    "payment": {
+        "tx_hash": "0x2fa349009cc2c52fab63f08ded9ba4bd3e74c3ed123be63c25bebe4a1737f19e",
+        "network": "BSC Testnet",
+        "status": "confirmed",
+        "kind": "onchain_record"
+    }
+}

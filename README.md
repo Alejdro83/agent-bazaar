@@ -13,15 +13,31 @@ Every claim below is backed by something you can check yourself — a real
 transaction on BscScan, a real API response, real code. None of it is a
 scaffold or a mock left over from planning.
 
-- **40 real agents on BSC** — 32 indexed from live ERC-8004 identities via
+- **84 real agents on BSC** — 76 indexed from live ERC-8004 identities via
   8004scan (browse-only, they're real third-party agents we don't control),
-  8 of our own hireable listings. Evenly spread across the hackathon's 4
-  required categories: `rebalancing`, `grid_trading`, `yield_optimisation`,
-  `health_factor`.
+  8 of our own hireable listings, all registered onchain. Evenly spread
+  across the hackathon's 4 required categories: `rebalancing`, `grid_trading`,
+  `yield_optimisation`, `health_factor`. Resyncs daily via a Vercel cron.
 - **Real onchain agent registration** — listing an agent registers it on the
   ERC-8004 Identity Registry on BSC testnet via `@bnbagent/sdk`, gas-free via
   the MegaFuel paymaster. Real, BscScan-verifiable transaction, shown right
   on the agent's page.
+- **Real per-category live data** — each of the 8 hireable agents combines
+  its own strategy config with a real-time fetch (Venus, Binance, or
+  DefiLlama) to show a genuinely different number from other agents in the
+  same category: max safe borrow, grid spacing, best real yield, or
+  suggested LP range. Not a shared category-level fact — see
+  `src/lib/market/signals.ts`.
+- **A real deliverable when you hire, not just a receipt** — hiring an agent
+  runs its real analysis server-side and hands the buyer an "Agent output"
+  screen with the real numbers, sources, and a JSON download, instead of a
+  bare confirmation toast. TermiX's own rubric asks to hire an agent and see
+  what comes back — this is what comes back. See `src/app/hire/[contractId]`.
+- **Real-data backtest track record** — each hireable agent's page shows a
+  backtest over real historical data (90 real days of Binance klines for
+  grid strategies, 365 real days for health-factor survival, real DefiLlama
+  pool history for yield), explicitly labeled "backtest, not live capital."
+  See `src/lib/market/backtest.ts`.
 - **Real buyer-signed payment** — hiring a paid agent (web, wallet-connected)
   signs a real native BNB transfer to the seller's wallet, verified onchain
   before the contract is created. (Telegram-identified hires currently keep
@@ -114,14 +130,17 @@ src/
 ├── app/
 │   ├── api/
 │   │   ├── agents/            # CRUD + public listing
-│   │   ├── contracts/         # hire flow + payment verification
+│   │   ├── contracts/         # hire flow, payment verification, real deliverable
 │   │   ├── concierge/         # semantic search
 │   │   ├── arena/             # head-to-head comparison
+│   │   ├── market/signal/     # live per-agent market data
+│   │   ├── cron/               # daily 8004scan resync (vercel.json)
 │   │   └── ratings/
-│   ├── agent/[id]/            # agent detail, hire, reviews
+│   ├── agent/[id]/            # agent detail, live signal, track record, hire, reviews
+│   ├── hire/[contractId]/      # "Agent output" — the real deliverable after hiring
 │   ├── arena/                 # Agent Arena
 │   ├── list/                  # seller listing wizard
-│   ├── dashboard/             # seller dashboard
+│   ├── dashboard/             # seller + buyer ("Hired") dashboard
 │   └── profile/
 ├── bot/                       # Telegram bot (grammy)
 ├── components/
@@ -131,6 +150,7 @@ src/
 ├── lib/
 │   ├── supabase/service.ts     # the one Supabase client (service-role)
 │   ├── erc8004/                 # onchain registration + hire records
+│   ├── market/                  # live signals (Venus/Binance/DefiLlama) + backtests
 │   ├── embeddings/              # Cloudflare Workers AI client
 │   ├── eightoofourscan/         # real BSC agent catalog sync
 │   └── rate-limit/
@@ -139,6 +159,8 @@ supabase/
 └── migrations/
 scripts/
 ├── sync-8004scan.ts             # real agent catalog sync (dry-run by default)
+├── run-backtests.ts             # real-data backtest track record per agent
+├── register-seed-agents.ts      # onchain identity for the 8 hireable agents
 └── backfill-embeddings.ts
 termix-report/                   # TermiX Agent Advantage Report + real outputs
 ```
@@ -156,6 +178,12 @@ termix-report/                   # TermiX Agent Advantage Report + real outputs
   operator-signed onchain record instead of a mock hash.
 - **8004scan-indexed agents are browse-only.** They're real third-party
   identities on BSC we don't control the execution/payment endpoint for.
+- **Hiring runs a real analysis, not a real autonomous execution.** What you
+  get back after hiring (see `/hire/[contractId]`) is a genuine, live-data
+  computation of what the agent recommends — it doesn't (yet) sign a trade
+  or a rebalance on your behalf. That's the same "minimal friction over full
+  autonomy" trade-off as the payments decision above, made explicit rather
+  than implied.
 
 ## License
 

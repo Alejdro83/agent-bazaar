@@ -1,0 +1,48 @@
+{
+    "contract": {
+        "id": "43e23e1f-2b8e-49c2-ae76-0754f4b9b174",
+        "created_at": "2026-08-25T16:31:53.423364+00:00",
+        "updated_at": "2026-08-25T16:31:53.423364+00:00",
+        "agent_id": "11111111-1111-1111-1111-111111111104",
+        "buyer_id": "0xabababababababababababababababababababab",
+        "seller_id": "demo_seller_3",
+        "status": "active",
+        "pricing_type": "free",
+        "pricing_value": 0,
+        "pricing_currency": "USD",
+        "payment_tx_hash": "0xe2c925bfcaa586472780f13879c2e99010741faa4ce7cd1d3e52b6bb8f565ea8",
+        "altana_session_key": null,
+        "started_at": "2026-08-25T16:31:53.36+00:00",
+        "expires_at": null,
+        "metadata": {
+            "output": {
+                "task": "Grid spacing from real 24h volatility (1x ATR)",
+                "data_sources": [
+                    "https://api.binance.com/api/v3/klines?symbol=BNBUSDT&interval=1h"
+                ],
+                "inputs": {
+                    "symbol": "BNBUSDT",
+                    "current_price": 698.6,
+                    "atr_24h": 5.42,
+                    "spacing_atr_multiple": 1,
+                    "range_pct": 0.08
+                },
+                "result": {
+                    "grid_spacing": 5.42,
+                    "grid_spacing_pct": 0.78,
+                    "range_low": 642.71,
+                    "range_high": 754.49,
+                    "grid_levels": 21
+                },
+                "elapsed_ms": 315,
+                "timestamp": "2026-08-25T16:31:53.857Z"
+            }
+        }
+    },
+    "payment": {
+        "tx_hash": "0xe2c925bfcaa586472780f13879c2e99010741faa4ce7cd1d3e52b6bb8f565ea8",
+        "network": "BSC Testnet",
+        "status": "confirmed",
+        "kind": "onchain_record"
+    }
+}
