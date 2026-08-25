@@ -70,9 +70,22 @@ export async function registerAgentOnchain(opts: {
     capabilities: [opts.category],
   });
 
+  // The registry stores this as a base64 data: URI directly in calldata (no
+  // IPFS/off-chain hop) — the MegaFuel relay rejects sponsored transactions
+  // past a payload size it doesn't document ("tx size is too large"),
+  // confirmed by testing that a ~24-char description registers fine while
+  // ~150+ chars (this app's real listing copy) does not. Truncating only the
+  // on-chain copy — the full description still lives in Postgres and is
+  // what the marketplace UI actually renders.
+  const ONCHAIN_DESCRIPTION_MAX = 100;
+  const onchainDescription =
+    opts.description.length > ONCHAIN_DESCRIPTION_MAX
+      ? `${opts.description.slice(0, ONCHAIN_DESCRIPTION_MAX - 1)}…`
+      : opts.description;
+
   const agentUri = client.generateAgentUri({
     name: opts.name,
-    description: opts.description,
+    description: onchainDescription,
     endpoints: [endpoint],
   });
 
