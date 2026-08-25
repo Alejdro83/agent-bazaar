@@ -8,7 +8,7 @@
  * live capital" label — see src/app/agent/[id]/page.tsx.
  */
 
-const BINANCE_KLINES = 'https://api.binance.com/api/v3/klines';
+const BINANCE_KLINES = 'https://data-api.binance.vision/api/v3/klines';
 
 interface Candle {
   high: number;

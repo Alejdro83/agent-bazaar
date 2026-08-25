@@ -15,7 +15,7 @@ export interface Kline {
 
 async function fetchKlines(symbol: string, interval: string, limit: number): Promise<Kline[]> {
   return cached(`binance:klines:${symbol}:${interval}:${limit}`, 300, async () => {
-    const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+    const url = `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) throw new Error(`Binance API error: ${res.status} ${res.statusText}`);
     const raw: unknown[][] = await res.json();
@@ -54,7 +54,7 @@ export async function computeGridSignal(config: {
   const gridLevels = Math.max(2, Math.round(rangeWidth / gridSpacing));
 
   return {
-    data_sources: [`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1h`],
+    data_sources: [`https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=1h`],
     inputs: {
       symbol,
       current_price: currentPrice,
