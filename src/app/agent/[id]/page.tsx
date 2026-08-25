@@ -10,7 +10,7 @@ import { useTelegram } from '@/hooks/useTelegram';
 import { useIdentity } from '@/hooks/useIdentity';
 import { MiniAppShell } from '@/components/miniapp/MiniAppShell';
 import { CATEGORY_ICONS } from '@/lib/categories';
-import { summarizeSignal } from '@/lib/market/format';
+import { summarizeSignal, summarizeTrackRecord } from '@/lib/market/format';
 import type { AgentSignal } from '@/lib/market/signals';
 
 // Trivial on testnet, but a real signed transfer — matches MIN_PAYMENT_WEI
@@ -47,6 +47,7 @@ interface Agent {
   onchain_tx_hash: string | null;
   total_revenue: number;
   created_at: string;
+  metadata: { track_record?: Record<string, unknown> } | null;
 }
 
 interface Rating {
@@ -317,6 +318,19 @@ export default function AgentDetailPage() {
           ) : (
             <p className="text-sm text-gray-500">Computing from live market data…</p>
           )}
+        </div>
+      )}
+
+      {/* Track record — real historical backtest, explicitly not live capital, see src/lib/market/backtest.ts */}
+      {agent.source === 'user' && agent.metadata?.track_record && (
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4 mb-6">
+          <p className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-1">
+            Track record — backtest, not live capital
+          </p>
+          <p className="text-white font-medium mb-1">{summarizeTrackRecord(agent.metadata.track_record)}</p>
+          <p className="text-xs text-gray-600">
+            {String(agent.metadata.track_record.window)} · real historical data, reproducible
+          </p>
         </div>
       )}
 

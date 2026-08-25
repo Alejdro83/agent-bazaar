@@ -19,3 +19,19 @@ export function summarizeSignal(category: string, signal: AgentSignal): string {
       return '';
   }
 }
+
+/** One-line summary of a backtest track record (src/lib/market/backtest.ts) for the detail page. */
+export function summarizeTrackRecord(tr: Record<string, unknown>): string {
+  switch (tr.strategy) {
+    case 'grid_trading':
+      return `${tr.closed_trades} closed trades, ${tr.win_rate_pct}% win rate · ${tr.realized_return_pct}% return vs ${tr.buy_hold_return_pct}% buy-and-hold`;
+    case 'health_factor':
+      return tr.would_have_liquidated
+        ? `Would have liquidated after ${tr.days_until_liquidation} days`
+        : `Never liquidated over the observed window`;
+    case 'yield_history':
+      return `Mean ${tr.mean_apy_pct}% APY (${tr.worst_day_apy_pct}%–${tr.best_day_apy_pct}% range)`;
+    default:
+      return '';
+  }
+}
