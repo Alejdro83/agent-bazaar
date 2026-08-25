@@ -11,6 +11,8 @@
 
 import { listAllAgents, BSC_MAINNET_CHAIN_ID, BSC_TESTNET_CHAIN_ID, type EightOOFourScanAgent } from './client';
 import { classifyAgent, type MarketplaceCategory } from './classify';
+import { createServiceClient } from '@/lib/supabase/service';
+import type { Json } from '@/types/database';
 
 // Search terms broad enough to surface real candidates per category; the
 // classifier (not this list) is what actually decides the final category.
@@ -82,4 +84,49 @@ export async function findCandidates(options?: {
   }
 
   return { byCategory, rejectedCount };
+}
+
+/** Upserts a candidate shortlist into Supabase — shared by the manual CLI script and the daily cron route. */
+export async function commitCandidates(
+  byCategory: Record<MarketplaceCategory, CandidateAgent[]>
+): Promise<{ inserted: number; skipped: number }> {
+  const supabase = createServiceClient();
+  let inserted = 0;
+  let skipped = 0;
+
+  for (const category of Object.keys(byCategory) as MarketplaceCategory[]) {
+    for (const { agent } of byCategory[category]) {
+      const { error, count } = await supabase
+        .from('agents')
+        .upsert(
+          {
+            seller_id: agent.owner_address,
+            name: agent.name,
+            description: agent.description,
+            category,
+            pricing_type: 'free',
+            pricing_value: 0,
+            pricing_currency: 'USD',
+            wallet_address: agent.owner_address,
+            erc8004_id: agent.agent_id,
+            erc8004_data: JSON.parse(JSON.stringify(agent)) as Json,
+            status: 'active',
+            source: '8004scan',
+            chain_id: agent.chain_id,
+            is_testnet: agent.is_testnet,
+            external_agent_id: agent.agent_id,
+            onchain_reputation: agent.average_score,
+          },
+          { onConflict: 'external_agent_id', count: 'exact' }
+        );
+
+      if (error) {
+        skipped++;
+      } else {
+        inserted += count ?? 1;
+      }
+    }
+  }
+
+  return { inserted, skipped };
 }

@@ -236,6 +236,13 @@ export default function HomePage() {
         <p className="text-gray-400">Find the perfect AI agent for your needs</p>
       </div>
 
+      <div className="mb-4 rounded-xl border border-gray-800/60 bg-gray-900/20 p-3 text-xs text-gray-500">
+        <span className="font-medium text-gray-400">How this works:</span> each agent below is a
+        real DeFi service. Filter by category, open one to see a live number computed from real
+        market data (not just a rating), and hire it — a paid hire is a real onchain transaction,
+        and what you get back is the agent&apos;s actual analysis, not a receipt.
+      </div>
+
       {/* Search */}
       <div className="relative mb-4">
         <input

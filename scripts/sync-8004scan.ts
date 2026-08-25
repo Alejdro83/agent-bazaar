@@ -15,10 +15,8 @@
  *   npx tsx scripts/sync-8004scan.ts --commit --mainnet-only
  */
 
-import { findCandidates, type CandidateAgent } from '../src/lib/eightoofourscan/sync';
-import { createServiceClient } from '../src/lib/supabase/service';
+import { findCandidates, commitCandidates, type CandidateAgent } from '../src/lib/eightoofourscan/sync';
 import type { MarketplaceCategory } from '../src/lib/eightoofourscan/classify';
-import type { Json } from '../src/types/database';
 
 const CATEGORY_LABELS: Record<MarketplaceCategory, string> = {
   rebalancing: 'Rebalancing',
@@ -42,49 +40,6 @@ function printShortlist(byCategory: Record<MarketplaceCategory, CandidateAgent[]
   console.log(`\nRejected (no confident category match): ${rejectedCount}`);
 }
 
-async function commitToSupabase(byCategory: Record<MarketplaceCategory, CandidateAgent[]>) {
-  const supabase = createServiceClient();
-  let inserted = 0;
-  let skipped = 0;
-
-  for (const category of Object.keys(byCategory) as MarketplaceCategory[]) {
-    for (const { agent } of byCategory[category]) {
-      const { error, count } = await supabase
-        .from('agents')
-        .upsert(
-          {
-            seller_id: agent.owner_address,
-            name: agent.name,
-            description: agent.description,
-            category,
-            pricing_type: 'free',
-            pricing_value: 0,
-            pricing_currency: 'USD',
-            wallet_address: agent.owner_address,
-            erc8004_id: agent.agent_id,
-            erc8004_data: JSON.parse(JSON.stringify(agent)) as Json,
-            status: 'active',
-            source: '8004scan',
-            chain_id: agent.chain_id,
-            is_testnet: agent.is_testnet,
-            external_agent_id: agent.agent_id,
-            onchain_reputation: agent.average_score,
-          },
-          { onConflict: 'external_agent_id', count: 'exact' }
-        );
-
-      if (error) {
-        console.error(`  ✗ ${agent.name}: ${error.message}`);
-        skipped++;
-      } else {
-        inserted += count ?? 1;
-      }
-    }
-  }
-
-  console.log(`\nCommitted ${inserted} agents (${skipped} errors).`);
-}
-
 async function main() {
   const args = process.argv.slice(2);
   const commit = args.includes('--commit');
@@ -102,7 +57,8 @@ async function main() {
     return;
   }
 
-  await commitToSupabase(byCategory);
+  const { inserted, skipped } = await commitCandidates(byCategory);
+  console.log(`\nCommitted ${inserted} agents (${skipped} errors).`);
 }
 
 main().catch((err) => {
