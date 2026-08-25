@@ -1,56 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { identifyRequester } from '@/lib/auth/identify';
-import type { AgentCategory, PricingType } from '@/types/database';
+import { listAgents } from '@/lib/agents/list';
+import { handleApiError } from '@/lib/errors';
 
 /**
  * GET /api/agents — List agents with filters
  * POST /api/agents — Create new agent (requires Telegram auth)
+ *
+ * GET is a thin wrapper over listAgents() (src/lib/agents/list.ts), shared
+ * with the `list_agents` MCP tool (src/app/api/mcp/route.ts) so both see
+ * the exact same catalog.
  */
-
-const VALID_CATEGORIES: AgentCategory[] = [
-  'rebalancing',
-  'grid_trading',
-  'yield_optimisation',
-  'health_factor',
-];
-const VALID_PRICING_TYPES: PricingType[] = ['free', 'fixed', 'percentage'];
-// Allowlisted sort columns — never pass a user-supplied string straight to
-// .order(), which would accept arbitrary column/relation syntax.
-const SORT_COLUMNS = ['total_hires', 'avg_rating', 'created_at', 'pricing_value'] as const;
-type SortColumn = (typeof SORT_COLUMNS)[number];
 
 export async function GET(request: NextRequest) {
   try {
     const supabase = createServiceClient();
     const { searchParams } = request.nextUrl;
 
-    // Filters
-    const categoryParam = searchParams.get('category');
-    const category = VALID_CATEGORIES.includes(categoryParam as AgentCategory)
-      ? (categoryParam as AgentCategory)
-      : null;
-    const search = searchParams.get('search');
-    const pricingTypeParam = searchParams.get('pricing_type');
-    const pricingType = VALID_PRICING_TYPES.includes(pricingTypeParam as PricingType)
-      ? (pricingTypeParam as PricingType)
-      : null;
-    const sortParam = searchParams.get('sort');
-    const sort: SortColumn = (SORT_COLUMNS as readonly string[]).includes(sortParam ?? '')
-      ? (sortParam as SortColumn)
-      : 'total_hires';
-    const order = searchParams.get('order') === 'asc' ? 'asc' : 'desc';
-    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20', 10) || 20, 1), 100);
-    const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10) || 0, 0);
-
-    let query = supabase
-      .from('agents')
-      .select(
-        'id, name, description, category, subcategory, pricing_type, pricing_value, pricing_currency, status, avatar_url, total_hires, avg_rating, total_revenue, source, chain_id, is_testnet, onchain_reputation, erc8004_data, metadata, created_at',
-        { count: 'exact' }
-      );
-
     const isSellerView = searchParams.get('seller') === 'me';
+    let sellerId: string | null = null;
     if (isSellerView) {
       // Dashboard "my agents" view — needs real identity, and shows every
       // status (drafts included), not just the public 'active' listing.
@@ -58,73 +27,23 @@ export async function GET(request: NextRequest) {
       if (!requester) {
         return NextResponse.json({ error: 'Auth required' }, { status: 401 });
       }
-      query = query.eq('seller_id', requester.id);
-    } else {
-      // Public listing: status is never user-controlled.
-      query = query.eq('status', 'active');
+      sellerId = requester.id;
     }
 
-    // Apply filters
-    if (category) {
-      query = query.eq('category', category);
-    }
-    if (pricingType) {
-      query = query.eq('pricing_type', pricingType);
-    }
-    if (search) {
-      // Input travels as a tsquery *value*, not interpolated filter syntax.
-      query = query.textSearch('search_vector', search, { type: 'websearch' });
-    }
-
-    // Sort and paginate. The vast majority of agents tie on total_hires=0,
-    // and Postgres doesn't guarantee stable ordering across separate
-    // LIMIT/OFFSET calls for tied rows without a deterministic tiebreaker —
-    // without `id` here, pages could repeat or skip agents between requests.
-    // `id` is a random UUID (not insertion order), but any fixed column
-    // works as a tiebreaker; it only needs to be consistent, not meaningful.
-    query = query
-      .order(sort, { ascending: order === 'asc' })
-      .order('id', { ascending: true })
-      .range(offset, offset + limit - 1);
-
-    const { data: agents, error, count } = await query;
-
-    if (error) {
-      console.error('Supabase error:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch agents' },
-        { status: 500 }
-      );
-    }
-
-    // Cheap, honest "Data Quality" signal for the public listing: when the
-    // real BSC catalog (source='8004scan') was last synced, not just a
-    // static count.
-    let lastSyncedAt: string | null = null;
-    if (!isSellerView) {
-      const { data: latest } = await supabase
-        .from('agents')
-        .select('created_at')
-        .eq('source', '8004scan')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      lastSyncedAt = latest?.created_at ?? null;
-    }
-
-    return NextResponse.json({
-      agents: agents || [],
-      total: count || 0,
-      limit,
-      offset,
-      last_synced_at: lastSyncedAt,
+    const result = await listAgents(supabase, {
+      category: searchParams.get('category'),
+      search: searchParams.get('search'),
+      pricingType: searchParams.get('pricing_type'),
+      sort: searchParams.get('sort'),
+      order: searchParams.get('order'),
+      limit: parseInt(searchParams.get('limit') || '20', 10),
+      offset: parseInt(searchParams.get('offset') || '0', 10),
+      sellerId,
     });
+
+    return NextResponse.json(result);
   } catch (error) {
-    console.error('API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 

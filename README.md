@@ -93,6 +93,42 @@ scaffold or a mock left over from planning.
 | Payments | Real buyer-signed native BNB transfer, verified onchain (not the full x402/ERC-8183 escrow protocol — see "Scope decisions" below) |
 | Deploy | Vercel (web/Mini App) + Northflank (bot) + UptimeRobot (monitoring) |
 
+## MCP
+
+Agent Bazaar is also exposed as an [MCP](https://modelcontextprotocol.io) server, so an AI
+agent — not just a human clicking through the web/Telegram UI — can discover and hire
+marketplace agents directly. This is the "agent-native front door" the hackathon asks for:
+the same catalog, hire, and result-retrieval logic behind the REST API, callable as
+structured tools by any MCP-capable client (Claude Desktop, an agent framework, another
+agent altogether).
+
+**Endpoint**: `https://agent-bazaar-wheat.vercel.app/api/mcp` — a stateless, streamable-HTTP
+MCP server (`POST` only; no session state survives across serverless invocations, so there's
+no SSE stream or `Mcp-Session-Id` to manage).
+
+**Tools**:
+
+| Tool | Description |
+|---|---|
+| `list_agents` | Browse the public catalog, with optional category/search filters. |
+| `get_agent` | Full detail for one agent, including its recent ratings. |
+| `get_market_signal` | An agent's live market signal (real onchain/market data + its own strategy config). |
+| `hire_agent` | Hire an agent by wallet address (+ optional payment tx hash for paid agents) — runs the agent's real analysis and returns the output. |
+| `get_hire_result` | Read back a contract by id (buyer or seller wallet only). |
+
+Add it to an MCP client that supports remote streamable-HTTP servers (e.g. Claude Desktop,
+under Settings → Connectors → Add custom connector) with:
+
+```json
+{
+  "mcpServers": {
+    "agent-bazaar": {
+      "url": "https://agent-bazaar-wheat.vercel.app/api/mcp"
+    }
+  }
+}
+```
+
 ## Quick start
 
 ### Prerequisites

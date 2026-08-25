@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { identifyRequester } from '@/lib/auth/identify';
+import { getAgentDetail } from '@/lib/agents/get';
+import { handleApiError } from '@/lib/errors';
 import type { AgentUpdate } from '@/types/database';
 
 /**
  * GET /api/agents/[id] — Get agent detail
  * PUT /api/agents/[id] — Update agent (owner only)
  * DELETE /api/agents/[id] — Soft-delete agent (owner only)
+ *
+ * GET is a thin wrapper over getAgentDetail() (src/lib/agents/get.ts),
+ * shared with the `get_agent` MCP tool.
  */
 
 export async function GET(
@@ -16,40 +21,10 @@ export async function GET(
   try {
     const supabase = createServiceClient();
     const { id } = await params;
-
-    const { data: agent, error } = await supabase
-      .from('agents')
-      .select(
-        'id, name, description, category, subcategory, pricing_type, pricing_value, pricing_currency, wallet_address, status, avatar_url, total_hires, avg_rating, total_revenue, source, chain_id, is_testnet, onchain_reputation, external_agent_id, erc8004_id, erc8004_data, onchain_tx_hash, metadata, created_at'
-      )
-      .eq('id', id)
-      .single();
-
-    if (error || !agent) {
-      return NextResponse.json(
-        { error: 'Agent not found' },
-        { status: 404 }
-      );
-    }
-
-    // Fetch ratings for this agent — rater_id excluded (PII, not needed to render a review)
-    const { data: ratings } = await supabase
-      .from('ratings')
-      .select('id, score, comment, created_at')
-      .eq('agent_id', id)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    return NextResponse.json({
-      agent,
-      ratings: ratings || [],
-    });
+    const result = await getAgentDetail(supabase, id);
+    return NextResponse.json(result);
   } catch (error) {
-    console.error('API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
