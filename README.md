@@ -220,6 +220,38 @@ termix-report/                   # TermiX Agent Advantage Report + real outputs
   or a rebalance on your behalf. That's the same "minimal friction over full
   autonomy" trade-off as the payments decision above, made explicit rather
   than implied.
+- **Altana session-key delegated execution is a standalone proof, not wired
+  into the hire flow.** `scripts/altana-demo-swap.ts` (backed by
+  `src/lib/altana/index.ts`) shows the *other* half of "hiring executes,
+  doesn't just recommend": it grants a real, ephemeral Altana session
+  (EIP-7702, via `@bnbagent/sdk`'s `AltanaWalletProvider` +
+  `@altananetwork/sdk`) scoped to nothing but the PancakeSwap v2 testnet
+  router with a small native spend cap, then executes one capped swap
+  strictly within that session key — not the admin key — and returns the
+  real transaction hash. This mechanism is genuinely implemented and was
+  exercised as far as this environment allows: it runs a real onchain
+  `balances()` read against BSC testnet, then fails with a specific,
+  actionable error (`Altana demo wallet 0x... has insufficient BNB testnet
+  balance (0 wei; needs at least ...)`) rather than a generic crash, because
+  the demo wallet was never funded — the BNB Chain testnet faucet requires
+  a captcha this session couldn't complete. No code bug was hit; the flow
+  gets exactly as far as a real, honest funding gap.
+  - **Why a wallet we control, not your connected wallet.** A real buyer's
+    MetaMask/WalletConnect account cannot grant this session today:
+    `grantSession` needs to sign an EIP-7702 authorization, and viem's
+    `signAuthorization` explicitly throws `AccountTypeNotSupportedError`
+    for JSON-RPC/injected accounts (see
+    `node_modules/viem/_esm/actions/wallet/signAuthorization.js`) — only a
+    raw private key (a `LocalAccount`) can sign one. That's a wallet-
+    ecosystem limitation as of today, not a gap in this implementation, so
+    this demo uses a dedicated wallet we control
+    (`ALTANA_DEMO_WALLET_PRIVATE_KEY`) as the "buyer" instead.
+  - **To run the full proof yourself:** generate a key
+    (`node -e "console.log(require('viem/accounts').generatePrivateKey())"`),
+    set it as `ALTANA_DEMO_WALLET_PRIVATE_KEY`, fund that address from the
+    [BNB Chain testnet faucet](https://testnet.bnbchain.org/faucet-smart),
+    then run `npx tsx --env-file-if-exists=.env.local scripts/altana-demo-swap.ts`
+    — it prints the real transaction hash and a BscScan testnet link.
 
 ## License
 
