@@ -16,7 +16,12 @@ aggregator), and documents all three with real numbers.
 |---|---|---|---|
 | Smarter liquidity management | AutoRebalance, RangeKeeper | DefiLlama (covers PancakeSwap pools directly) | Suggests LP range width from real pool volatility |
 | Finding better yields | PancakeOptimizer, BeefyHarvester v2 | DefiLlama | Ranks real PancakeSwap yield against alternatives, live |
-| Safe automated swap routing | *(new)* | `@pancakeswap/smart-router`, live on-chain | Real best-trade route/price across real PancakeSwap V3 pools — a quote, never an executed transaction |
+| Safe automated swap routing | **PancakeRouter** *(new)* | `@pancakeswap/smart-router`, live on-chain | Real best-trade route/price across real PancakeSwap V3 pools — a quote, never an executed transaction |
+
+All three rows are real, hireable agents live in the marketplace right now
+— [agent-bazaar-wheat.vercel.app/agent/1019beed-ff7f-474c-acfd-d160b20713d6](https://agent-bazaar-wheat.vercel.app/agent/1019beed-ff7f-474c-acfd-d160b20713d6)
+is PancakeRouter's real page (free, registered onchain as ERC-8004 agent
+#1922, tx `0x2d00bc48fc4fb294b82e64f164e460402b782566b0d1db5f4d5af441555e4b3c`).
 
 None of this touches user funds. Every number below is real, live, and
 reproducible — nothing here is a mocked API response or an invented example.
@@ -95,7 +100,26 @@ This is a quote, not an executed trade — no wallet ever signs anything here,
 so it can never put a user's funds at risk, directly matching the
 challenge's own framing of "safe automated swaps."
 
-Real output, `pancakeswap-report/best-route.mjs`, run against BSC mainnet:
+This capability is **PancakeRouter**, a real, free, hireable agent
+(`src/lib/market/pancakeswap.ts`, `metadata.strategy: 'pancake_route'`) —
+not only a standalone script. Hiring it (or just viewing its page) runs this
+exact lookup live and shows the real result:
+
+```json
+{
+  "task": "Best real PancakeSwap route: BNB → CAKE",
+  "data_sources": ["https://bsc-dataseed1.bnbchain.org"],
+  "inputs": { "from_symbol": "BNB", "to_symbol": "CAKE", "amount_in": 1, "real_candidate_pools_fetched": 81 },
+  "result": { "amount_out": 403.183139, "implied_price": 403.183139, "route_legs": 2, "gas_use_estimate": "164000" },
+  "elapsed_ms": 495
+}
+```
+
+The original standalone script (`pancakeswap-report/best-route.mjs`,
+verified separately below) proved the mechanism before it was wired into a
+real agent — both use the identical `InfinityRouter` call.
+
+Real output from that script, run against BSC mainnet:
 
 ```json
 {
@@ -137,10 +161,12 @@ fabricated number. Full output: `best-route-output.json`. Reproduce with
   marketplace holds a swap-capable session on a user's behalf yet — see the
   Altana section of the main README for the one place we explored real
   delegated execution, and why it's not wired into a live user flow today.
-- Section 3's SDK integration is a standalone, reproducible script — it is
-  not (yet) wired into a live agent's hire flow, the same posture as the
-  Altana demo. Sections 1 and 2 are live, in production, hireable today.
+- All three benefits above (Sections 1, 2, 3) are live, hireable agents in
+  production today — PancakeRouter included, not only a standalone script.
 - `@pancakeswap/smart-router`'s latest release (`7.7.0`) currently ships a
   broken dependency pin (`@pancakeswap/infinity-stable-sdk@1.0.2`, a version
-  that was never published) — this report pins `7.6.1`, the last version
-  before that break, verified working end-to-end.
+  that was never published) — this project pins `7.6.1`, the last version
+  before that break, verified working end-to-end, including against the
+  actual deployed Vercel production environment (not just local dev) — a
+  real real-world silent-in-production failure with a different upstream
+  API earlier in this project made that specific check worth calling out.
