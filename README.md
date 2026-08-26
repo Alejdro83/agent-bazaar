@@ -243,16 +243,25 @@ termix-report/                   # TermiX Agent Advantage Report + real outputs
   proof of the same mechanism (grant → execute a capped swap strictly
   within the session, not the admin key).
 
-  This mechanism is genuinely implemented and was exercised as far as this
-  environment allows: it runs a real onchain `balances()` read against BSC
-  testnet, then fails with a specific, actionable error (`Altana demo
-  wallet 0x... has insufficient BNB testnet balance (0 wei; needs at least
-  ...)`) — surfaced verbatim in the UI, not swallowed into a generic
-  failure — because the demo wallet was never funded: the BNB Chain
-  testnet faucet requires a captcha this session couldn't complete. No
-  code bug was hit; the flow gets exactly as far as a real, honest funding
-  gap. See `altana-report/NEXT_STEPS.md` for the exact address to fund and
-  the exact command to run afterward.
+  **Fully exercised end-to-end in real production, with the demo wallet
+  funded on 2026-08-26** — not just the mechanism, an actual completed
+  swap through the session key:
+  - Real capped swap executed strictly through the session key (not the
+    admin key): tx
+    [`0x49fb7e0c...9e01`](https://testnet.bscscan.com/tx/0x49fb7e0cdb5c3a8ad6d9e280343cf6c20046bd7128a4d52205caab9a61759e01),
+    status `1`, verified directly via `eth_getTransactionReceipt` (not just
+    the SDK's own report).
+  - The exact same live product flow a buyer would use — `POST
+    /api/altana/grant` → `GET /api/altana/session/[contractId]` → `POST
+    /api/altana/revoke` — run against real production and verified onchain
+    at every step: grant produced a real KeyStore-registered session
+    (contract `1a3df19a-660b-4e81-a402-455621eba705`), the session panel
+    correctly read back the live allowlist/spend cap/expiry, and revoke
+    produced a second real, successful transaction
+    ([`0xee7f5b8e...0c1be`](https://testnet.bscscan.com/tx/0xee7f5b8ea038307c64a1b8d29839eb5e1b579e0e921f8a7e4e4acb577a90c1be),
+    status `1`).
+  - See `altana-report/NEXT_STEPS.md` for the funding history and exact
+    commands to reproduce.
   - **Why a wallet we control, not your connected wallet.** A real buyer's
     MetaMask/WalletConnect account cannot grant this session today:
     `grantSession` needs to sign an EIP-7702 authorization, and viem's

@@ -1,55 +1,53 @@
-# Altana session-key demo — the one remaining manual step
+# Altana session-key demo — completed, 2026-08-26
 
-Everything code-side is done and verified (see the session's report). The
-only thing blocking a real, live onchain transaction is that the dedicated
-demo wallet has never been funded — the BNB Chain testnet faucet requires a
-captcha/browser, which this environment cannot complete.
+The funding gap documented below is closed. The demo wallet
+(`0x8d147CFFBb304d57C744b4f8DB7Eb266c8e0Aa25`) was funded on 2026-08-26 —
+0.0078 BNB mainnet (to satisfy the official testnet faucet's anti-sybil
+check) and 0.3 BNB testnet (from the faucet itself) — and both the
+standalone CLI proof and the real production API flow have been run
+end-to-end, each producing a real, verified onchain transaction.
 
-## 1. Fund this exact address
+## Real results (verified via `eth_getTransactionReceipt`, not just SDK output)
 
-```
-0x8d147CFFBb304d57C744b4f8DB7Eb266c8e0Aa25
-```
+**Standalone CLI** (`scripts/altana-demo-swap.ts`): a capped swap executed
+strictly through the session key (not the admin key).
+- tx: `0x49fb7e0cdb5c3a8ad6d9e280343cf6c20046bd7128a4d52205caab9a61759e01`
+- status: `1` (success)
+- BscScan: https://testnet.bscscan.com/tx/0x49fb7e0cdb5c3a8ad6d9e280343cf6c20046bd7128a4d52205caab9a61759e01
+- session public key: `0x041fca1f9f33b5a8dff8c6405a57f97049059f0dfdb3778bcb185a465963a911d3581b4b48d9c4296968bbb5bbb2c0f46771ea32a2d1fa32bf9dd23d249a33a5d7`
+- granted with `register: true` (real KeyStore registration)
 
-Faucet: https://testnet.bnbchain.org/faucet-smart
+**Real production flow** (the exact path a buyer/judge hits in the live
+app — `POST /api/altana/grant` → `GET /api/altana/session/[contractId]` →
+`POST /api/altana/revoke`), run directly against
+`https://agent-bazaar-wheat.vercel.app`:
+- Grant produced contract `1a3df19a-660b-4e81-a402-455621eba705` and a
+  real, KeyStore-registered session (public key
+  `0x043fc44c9d3c7b1984707bca29cc13c193b8234810bac880860f3032be09814724087423f203055fc020f3c9b4169f333db6507349242d0b7ea15265ee7e4dbf93`,
+  spend cap 0.003 BNB, 1h expiry).
+- Session-status endpoint correctly read back the live allowlist/spend
+  cap/expiry (`status: "active"`).
+- Revoke produced a second real transaction:
+  `0xee7f5b8ea038307c64a1b8d29839eb5e1b579e0e921f8a7e4e4acb577a90c1be`,
+  status `1`, confirmed at block 127328184.
 
-Request at least **0.01 BNB** (testnet) — `grantSession({ register: true })`
-now pays a real KeyStore registration fee on top of ordinary relay gas, plus
-the swap value and execute gas. See `REQUIRED_MIN_NATIVE_WEI` in
-`src/lib/altana/index.ts` for the exact breakdown/amount if you want to fund
-more precisely.
+## How the funding gap was actually closed
 
-The private key for this address already lives in `.env.local` as
-`ALTANA_DEMO_WALLET_PRIVATE_KEY` — nothing else needs to change.
+The official BNB testnet faucet turned out to require the *requesting*
+address to already hold ≥0.002 BNB on **BSC mainnet** (an anti-sybil
+check, undocumented on the faucet page itself, only surfaced as a
+`Request Failed: insufficient BNB on BSC mainnet` error). Since Coinbase.com
+doesn't support BNB Smart Chain withdrawals natively, the path that worked
+was: buy a small amount of real BNB directly on BSC mainnet via MetaMask's
+built-in on-ramp (card/Apple Pay via MoonPay/Transak), send ~0.0078 BNB to
+the demo wallet, then retry the testnet faucet successfully (0.3 BNB
+received).
 
-## 2. Run the standalone CLI proof (fastest way to confirm funding worked)
+## Reproducing
 
 ```
 npx tsx --env-file-if-exists=.env.local scripts/altana-demo-swap.ts
 ```
 
-This grants a real, KeyStore-registered Altana session scoped to the
-PancakeSwap testnet router, executes one capped swap strictly within that
-session (not the admin key), and prints a real, BscScan-verifiable
-transaction hash plus the session's public key (check it against the
-KeyStore registry to confirm `register: true` really landed onchain).
-
-## 3. Exercise the full product flow (optional, but this is the actual demo)
-
-Once funded, the same mechanism is live in the app:
-
-1. Load `/agent/<AltanaGridBot's id>` and click **Grant Altana session**.
-   This creates a real contract (same free-agent hire path every other
-   agent uses) AND grants a real, registered Altana session in one call
-   (`POST /api/altana/grant`).
-2. You land on `/hire/<contract id>`, which now shows a live **Altana
-   session** panel: the real call allowlist, spend cap, and expiry
-   countdown, read back from `GET /api/altana/session/[contractId]`.
-3. Click **Revoke session** — a real, immediate on-chain revocation
-   (`POST /api/altana/revoke`), and the panel updates to `revoked` with the
-   real revoke transaction hash.
-
-Without funding, step 1 currently fails with a specific, honest error
-(insufficient BNB testnet balance) surfaced directly in the UI — not a
-crash, not a generic "something went wrong." That's the expected state
-right now, not a bug.
+runs another full grant → execute cycle against the same funded wallet
+(each run consumes a small amount of the remaining testnet balance).
