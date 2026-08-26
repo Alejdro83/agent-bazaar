@@ -1,6 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: __dirname,
+  // @altananetwork/sdk is an ESM-only optional peer that @bnbagent/sdk loads
+  // via a runtime `import(variableSpecifier)` (src/lib/altana/sdk-importer.ts
+  // deliberately hides this from webpack's static analysis so the build
+  // doesn't fail trying to resolve a variable import — see that file's
+  // docstring). The same indirection that fixes the webpack build error also
+  // hides the dependency from Vercel's own file-tracing (@vercel/nft), which
+  // decides what node_modules files ship in each serverless function's
+  // bundle by statically finding require/import calls — so without this,
+  // the Altana routes deploy successfully but the package's files are
+  // missing at runtime ("not installed" even though `npm install` genuinely
+  // installed it — confirmed real in production, not a local-only issue).
+  outputFileTracingIncludes: {
+    '/api/altana/**': ['./node_modules/@altananetwork/sdk/**/*'],
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',
