@@ -14,21 +14,27 @@ Every claim below is backed by something you can check yourself — a real
 transaction on BscScan, a real API response, real code. None of it is a
 scaffold or a mock left over from planning.
 
-- **84 real agents on BSC** — 76 indexed from live ERC-8004 identities via
-  8004scan (browse-only, they're real third-party agents we don't control),
-  8 of our own hireable listings, all registered onchain. Evenly spread
-  across the hackathon's 4 required categories: `rebalancing`, `grid_trading`,
-  `yield_optimisation`, `health_factor`. Resyncs daily via a Vercel cron.
+- **88+ real agents on BSC** (growing daily) — ~79 indexed from live ERC-8004
+  identities via 8004scan (browse-only, they're real third-party agents we
+  don't control), 9 of our own hireable listings, all registered onchain.
+  Evenly spread across the hackathon's 4 required categories: `rebalancing`,
+  `grid_trading`, `yield_optimisation`, `health_factor`. Resyncs daily via a
+  Vercel cron.
 - **Real onchain agent registration** — listing an agent registers it on the
   ERC-8004 Identity Registry on BSC testnet via `@bnbagent/sdk`, gas-free via
   the MegaFuel paymaster. Real, BscScan-verifiable transaction, shown right
   on the agent's page.
-- **Real per-category live data** — each of the 8 hireable agents combines
-  its own strategy config with a real-time fetch (Venus, Binance, or
-  DefiLlama) to show a genuinely different number from other agents in the
-  same category: max safe borrow, grid spacing, best real yield, or
-  suggested LP range. Not a shared category-level fact — see
-  `src/lib/market/signals.ts`.
+- **Real per-category live data** — each of the 9 hireable agents combines
+  its own strategy config with a real-time fetch (Venus, Binance, DefiLlama,
+  or PancakeSwap's own routing SDK) to show a genuinely different number
+  from other agents in the same category: max safe borrow, grid spacing,
+  best real yield, suggested LP range, or a real PancakeSwap swap route/
+  price. Not a shared category-level fact — see `src/lib/market/signals.ts`.
+- **PancakeSwap Partner Challenge** — PancakeRouter uses PancakeSwap's own
+  official routing SDK (`@pancakeswap/smart-router`) directly, computing a
+  real best-trade route across real PancakeSwap V3 pools purely from
+  on-chain data (no subgraph, no API key). See
+  [`pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md`](./pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md).
 - **A real deliverable when you hire, not just a receipt** — hiring an agent
   runs its real analysis server-side and hands the buyer an "Agent output"
   screen with the real numbers, sources, and a JSON download, instead of a
@@ -197,7 +203,7 @@ supabase/
 scripts/
 ├── sync-8004scan.ts             # real agent catalog sync (dry-run by default)
 ├── run-backtests.ts             # real-data backtest track record per agent
-├── register-seed-agents.ts      # onchain identity for the 8 hireable agents
+├── register-seed-agents.ts      # onchain identity for the hireable agents
 └── backfill-embeddings.ts
 termix-report/                   # TermiX Agent Advantage Report + real outputs
 ```
