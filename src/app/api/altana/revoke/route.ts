@@ -5,6 +5,11 @@ import { revokeGrantedSession } from '@/lib/altana';
 import { parseSessionEnvelope, serializeEnvelope } from '@/lib/altana/session-envelope';
 import { handleApiError } from '@/lib/errors';
 
+// See the identical comment in ../grant/route.ts — a distinguishing runtime
+// config to stop Vercel's function deduplication from dropping this route's
+// real @altananetwork/sdk dependency.
+export const maxDuration = 30;
+
 /**
  * POST /api/altana/revoke — Revoke a contract's Altana session. Body:
  * `{ contract_id }`. Buyer or seller only — same authorization bar as

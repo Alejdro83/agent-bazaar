@@ -8,6 +8,15 @@ import { grantSwapSession } from '@/lib/altana';
 import { wrapSessionEnvelope, serializeEnvelope } from '@/lib/altana/session-envelope';
 import { handleApiError } from '@/lib/errors';
 
+// A distinguishing runtime config, not a functional requirement — Vercel's
+// Next.js builder was symlinking this route's serverless function to an
+// unrelated route's identical-looking bundle (agents/[id]/route), which
+// dropped @altananetwork/sdk's files even though this route's own Next.js
+// trace (.nft.json) correctly includes them (see next.config.js's
+// outputFileTracingIncludes). A distinct maxDuration is enough to stop
+// Vercel from treating the two as shareable.
+export const maxDuration = 30;
+
 /**
  * POST /api/altana/grant — Hire an Altana-session-capable agent (currently
  * just "AltanaGridBot" — see scripts/create-altana-gridbot-agent.ts) AND

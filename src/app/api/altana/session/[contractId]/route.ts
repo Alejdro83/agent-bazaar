@@ -4,6 +4,11 @@ import { identifyRequester } from '@/lib/auth/identify';
 import { summarizeSessionEnvelope } from '@/lib/altana/session-envelope';
 import { handleApiError } from '@/lib/errors';
 
+// See the identical comment in ../../grant/route.ts — a distinguishing
+// runtime config to stop Vercel's function deduplication from dropping
+// this route's real @altananetwork/sdk dependency.
+export const maxDuration = 30;
+
 /**
  * GET /api/altana/session/[contractId] — Real, live status of a contract's
  * Altana session: active / expired / revoked, plus the real permissions it

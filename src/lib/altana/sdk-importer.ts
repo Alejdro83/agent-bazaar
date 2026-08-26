@@ -41,8 +41,17 @@
 
 import { setAltanaSdkImporter } from '@bnbagent/sdk/wallets';
 
-const nativeDynamicImport = new Function('specifier', 'return import(specifier)') as (
-  specifier: string
-) => Promise<unknown>;
-
-setAltanaSdkImporter(() => nativeDynamicImport('@altananetwork/sdk'));
+// A literal specifier (not the `new Function(...)` indirection this used
+// initially) — that first version hid the import from webpack's static
+// analysis to dodge a build warning, but it ALSO hid it from Vercel's own
+// file-tracing (@vercel/nft), which decides what node_modules files ship in
+// each serverless function's bundle by statically finding require/import
+// calls. Result: it built and deployed fine, but Vercel deduplicated the
+// Altana routes' functions with an unrelated route that happens to produce
+// an identical *visible* dependency graph, so @altananetwork/sdk's files
+// never actually shipped — confirmed by inspecting `vercel build`'s real
+// output (`.vercel/output/functions/api/altana/grant.func` was a symlink to
+// `agents/[id].func`, which has zero files from this package). A literal
+// specifier here is statically visible to both webpack and Vercel's
+// tracing, so this route's dependency graph is now genuinely distinct.
+setAltanaSdkImporter(() => import('@altananetwork/sdk'));
