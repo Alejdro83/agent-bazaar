@@ -9,6 +9,7 @@
 import { computeHealthFactorSignal } from './venus';
 import { computeGridSignal } from './binance';
 import { computeYieldCompareSignal, computeRebalancingSignal } from './defillama';
+import { computePancakeRouteSignal } from './pancakeswap';
 
 export interface AgentSignal {
   task: string;
@@ -50,6 +51,20 @@ export async function computeAgentSignal(agent: SignalAgent): Promise<AgentSigna
       break;
     }
     case 'grid_trading': {
+      // Two distinct strategies share this category: ATR-sized grid bots,
+      // and (new) a real PancakeSwap best-route swap quote — distinguished
+      // by metadata.strategy, not category alone.
+      if (config.strategy === 'pancake_route') {
+        const fromSymbol = String(config.from_symbol ?? 'BNB');
+        const toSymbol = String(config.to_symbol ?? 'CAKE');
+        task = `Best real PancakeSwap route: ${fromSymbol} → ${toSymbol}`;
+        payload = await computePancakeRouteSignal({
+          fromSymbol,
+          toSymbol,
+          amountRaw: String(config.amount_raw ?? '1000000000000000000'),
+        });
+        break;
+      }
       const spacingAtrMultiple = Number(config.spacing_atr_multiple ?? 0.5);
       const rangePct = Number(config.range_pct ?? 0.05);
       task = `Grid spacing from real 24h volatility (${spacingAtrMultiple}x ATR)`;

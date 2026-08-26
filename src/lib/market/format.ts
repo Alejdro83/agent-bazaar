@@ -7,6 +7,11 @@ export function summarizeSignal(category: string, signal: AgentSignal): string {
     case 'health_factor':
       return `Max safe borrow: $${Number(r.max_safe_borrow_usd).toLocaleString()} (target HF ${signal.inputs.target_health_factor})`;
     case 'grid_trading':
+      // Two strategies share this category — pancake_route's result shape
+      // (route_legs/amount_out) is distinct from the ATR grid shape.
+      if (r.route_legs !== undefined) {
+        return `${r.amount_out} ${signal.inputs.to_symbol} for 1 ${signal.inputs.from_symbol} · ${r.route_legs} route leg${r.route_legs === 1 ? '' : 's'}`;
+      }
       return `${r.grid_levels} grid levels · $${r.grid_spacing} spacing (${r.grid_spacing_pct}%)`;
     case 'yield_optimisation': {
       const candidates = signal.result.candidates as { source: string; apy: number }[];
