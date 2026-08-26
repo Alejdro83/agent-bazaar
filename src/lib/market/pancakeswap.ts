@@ -74,7 +74,9 @@ export async function computePancakeRouteSignal(config: {
   const output = Number(trade.outputAmount.toExact());
 
   return {
-    data_sources: ['PancakeSwap V3 pools, live on-chain via @pancakeswap/smart-router (no subgraph, no API key)'],
+    // A real URL, not prose — the detail page does `new URL(data_sources[0])`
+    // to render a clickable source link, which throws on a non-URL string.
+    data_sources: ['https://bsc-dataseed1.bnbchain.org'],
     inputs: {
       from_symbol: trade.inputAmount.currency.symbol,
       to_symbol: trade.outputAmount.currency.symbol,
