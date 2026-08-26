@@ -37,6 +37,8 @@ interface Agent {
     is_verified?: boolean;
     supported_protocols?: string[];
   } | null;
+  /** `altana_session_agent` — see src/app/agent/[id]/page.tsx's Agent interface for why this skips Live Signal. */
+  metadata: { altana_session_agent?: boolean } | null;
 }
 
 const CATEGORIES = [
@@ -166,7 +168,9 @@ function AgentCard({ agent }: { agent: Agent }) {
         {agent.description}
       </p>
 
-      {agent.source === 'user' && <LiveSignalLine agentId={agent.id} category={agent.category} />}
+      {agent.source === 'user' && !agent.metadata?.altana_session_agent && (
+        <LiveSignalLine agentId={agent.id} category={agent.category} />
+      )}
       {agent.source === '8004scan' && agent.erc8004_data && <ReputationLine data={agent.erc8004_data} />}
 
       <div className="flex items-center justify-between">

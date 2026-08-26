@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle2, Download, ArrowLeft } from 'lucide-react';
+import { CheckCircle2, Download, ArrowLeft, ShieldAlert, ShieldCheck, ShieldOff, ShieldQuestion } from 'lucide-react';
 import { useIdentity } from '@/hooks/useIdentity';
 import { MiniAppShell } from '@/components/miniapp/MiniAppShell';
 import type { AgentSignal } from '@/lib/market/signals';
@@ -25,6 +25,29 @@ interface AgentBrief {
   category: string;
 }
 
+/** Mirrors AltanaSessionSummary from src/lib/altana/session-envelope.ts — the safe, client-facing subset only (never the raw serialized session). */
+interface AltanaSessionSummary {
+  status: 'active' | 'expired' | 'revoked';
+  callAllowlist: string[];
+  nativeSpendCapWei: string;
+  nativeSpendCapBnb: string;
+  expiry: number;
+  expiryIso: string;
+  sessionPublicKey: string;
+  sessionWalletAddress: string;
+  revokedAt: string | null;
+  revokeTxHash: string | null;
+}
+
+/** "Xm Ys" until `expiry` (unix seconds), or "expired" once past. */
+function formatCountdown(expirySeconds: number, nowMs: number): string {
+  const remainingSeconds = expirySeconds - Math.floor(nowMs / 1000);
+  if (remainingSeconds <= 0) return 'expired';
+  const minutes = Math.floor(remainingSeconds / 60);
+  const seconds = remainingSeconds % 60;
+  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+}
+
 /**
  * "Agent output" — what a buyer (or a judge hiring through the marketplace,
  * per the TermiX rubric: "TermiX will hire from your marketplace themselves
@@ -38,6 +61,17 @@ export default function HireResultPage() {
   const [agent, setAgent] = useState<AgentBrief | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [session, setSession] = useState<AltanaSessionSummary | null | undefined>(undefined);
+  const [revoking, setRevoking] = useState(false);
+  const [revokeMessage, setRevokeMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const fetchSession = useCallback(() => {
+    if (!identity) return;
+    fetch(`/api/altana/session/${params.contractId}`, { headers: identity.authHeader })
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((data: { session: AltanaSessionSummary | null }) => setSession(data.session))
+      .catch(() => setSession(null));
+  }, [params.contractId, identity]);
 
   useEffect(() => {
     if (!isAuthenticated || !identity) return;
@@ -49,7 +83,40 @@ export default function HireResultPage() {
       })
       .catch(() => setError('Could not load this contract'))
       .finally(() => setLoading(false));
-  }, [params.contractId, identity, isAuthenticated]);
+    // Every contract is checked — harmless (`{ session: null }`) for the
+    // vast majority that never went through the Altana grant flow.
+    fetchSession();
+  }, [params.contractId, identity, isAuthenticated, fetchSession]);
+
+  // Live countdown tick — only while there's an active session worth
+  // counting down (no point re-rendering every second for every visit).
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (session?.status !== 'active') return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [session?.status]);
+
+  const handleRevoke = async () => {
+    if (!identity || !contract) return;
+    setRevoking(true);
+    setRevokeMessage(null);
+    try {
+      const res = await fetch('/api/altana/revoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...identity.authHeader },
+        body: JSON.stringify({ contract_id: contract.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to revoke session');
+      setRevokeMessage({ type: 'success', text: 'Session revoked — effective immediately onchain.' });
+      fetchSession();
+    } catch (err) {
+      setRevokeMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to revoke session' });
+    } finally {
+      setRevoking(false);
+    }
+  };
 
   const downloadJson = () => {
     if (!contract) return;
@@ -127,6 +194,94 @@ export default function HireResultPage() {
           >
             {contract.payment_tx_hash} ↗
           </a>
+        </div>
+      )}
+
+      {session && (
+        <div className="rounded-xl border border-sky-900/40 bg-sky-900/10 p-4 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs text-sky-400 uppercase tracking-wider font-medium">Altana session</p>
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                session.status === 'active'
+                  ? 'bg-emerald-900/30 text-emerald-400'
+                  : session.status === 'expired'
+                  ? 'bg-gray-800 text-gray-400'
+                  : 'bg-red-900/30 text-red-400'
+              }`}
+            >
+              {session.status === 'active' && <ShieldCheck className="h-3 w-3" strokeWidth={2} />}
+              {session.status === 'expired' && <ShieldQuestion className="h-3 w-3" strokeWidth={2} />}
+              {session.status === 'revoked' && <ShieldOff className="h-3 w-3" strokeWidth={2} />}
+              {session.status}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-wider">Spend cap</p>
+              <p className="text-white font-mono">{session.nativeSpendCapBnb} tBNB</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-wider">
+                {session.status === 'active' ? 'Expires in' : 'Expiry'}
+              </p>
+              <p className="text-white font-mono">
+                {session.status === 'active' ? formatCountdown(session.expiry, now) : new Date(session.expiryIso).toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Call allowlist</p>
+          {session.callAllowlist.map((addr) => (
+            <a
+              key={addr}
+              href={`https://testnet.bscscan.com/address/${addr}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-sm text-amber-400 hover:text-amber-300 font-mono break-all mb-2"
+            >
+              {addr} ↗
+            </a>
+          ))}
+
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Session key (registered in KeyStore)</p>
+          <p className="text-sm text-gray-300 font-mono break-all mb-3">{session.sessionPublicKey}</p>
+
+          {session.status === 'revoked' ? (
+            <p className="text-xs text-gray-500 flex items-center gap-1">
+              <ShieldOff className="h-3 w-3" strokeWidth={2} />
+              Revoked {session.revokedAt && new Date(session.revokedAt).toLocaleString()}
+              {session.revokeTxHash && (
+                <>
+                  {' · '}
+                  <a
+                    href={`https://testnet.bscscan.com/tx/${session.revokeTxHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-amber-400 hover:text-amber-300 underline"
+                  >
+                    view tx ↗
+                  </a>
+                </>
+              )}
+            </p>
+          ) : (
+            <button
+              onClick={handleRevoke}
+              disabled={revoking || session.status !== 'active'}
+              className="w-full rounded-xl border border-red-800/40 bg-red-900/10 py-2.5 text-red-400 font-semibold hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+            >
+              <ShieldAlert className="h-4 w-4" strokeWidth={2} />
+              {revoking ? 'Revoking…' : 'Revoke session'}
+            </button>
+          )}
+
+          {revokeMessage && (
+            <p className={`text-xs mt-2 ${revokeMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+              {revokeMessage.text}
+            </p>
+          )}
         </div>
       )}
 

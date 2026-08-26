@@ -48,7 +48,11 @@ interface Agent {
   onchain_tx_hash: string | null;
   total_revenue: number;
   created_at: string;
-  metadata: { track_record?: Record<string, unknown> } | null;
+  metadata: {
+    track_record?: Record<string, unknown>;
+    /** Marks agents (currently just AltanaGridBot) hireable through the dedicated Altana session-grant flow below, rather than the normal Hire button — and excluded from the Live Signal card, since a session grant/revoke IS its real output, not a market read. */
+    altana_session_agent?: boolean;
+  } | null;
 }
 
 interface Rating {
@@ -78,6 +82,10 @@ export default function AgentDetailPage() {
   const [ratingMessage, setRatingMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [signal, setSignal] = useState<AgentSignal | null>(null);
   const [signalError, setSignalError] = useState(false);
+  const [grantingSession, setGrantingSession] = useState(false);
+  const [grantMessage, setGrantMessage] = useState<
+    { type: 'success' | 'error'; text: string; contractId?: string } | null
+  >(null);
 
   const handleSubmitRating = async () => {
     if (!agent || !identity) return;
@@ -112,7 +120,12 @@ export default function AgentDetailPage() {
         if (!res.ok) throw new Error('Agent not found');
         const data = await res.json();
         setAgent(data.agent);
-        if (data.agent.source === 'user') {
+        // AltanaGridBot's real value is the session/execution mechanism, not
+        // a market read — computeAgentSignal's grid_trading case would fall
+        // through to the generic ATR-grid branch for it (no matching
+        // strategy) and show a misleading number, so it's excluded here
+        // rather than wired into that switch case.
+        if (data.agent.source === 'user' && !data.agent.metadata?.altana_session_agent) {
           fetch(`/api/market/signal?agent_id=${data.agent.id}`)
             .then((r) => (r.ok ? r.json() : Promise.reject()))
             .then((d: { signal: AgentSignal }) => setSignal(d.signal))
@@ -185,6 +198,48 @@ export default function AgentDetailPage() {
       setHiring(false);
     }
   }, [agent, identity, haptic, sendTransactionAsync, router]);
+
+  // Dedicated, additive flow for the one agent marked
+  // `metadata.altana_session_agent` (AltanaGridBot) — deliberately separate
+  // from handleHire above rather than a branch inside it, so the normal
+  // Hire button's behavior (and every other agent's) is untouched. Grants a
+  // real, KeyStore-registered Altana session tied to a real contract — see
+  // POST /api/altana/grant.
+  const handleGrantAltanaSession = useCallback(async () => {
+    if (!agent || !identity) return;
+
+    haptic?.impactOccurred('medium');
+    setGrantingSession(true);
+    setGrantMessage(null);
+
+    try {
+      const res = await fetch('/api/altana/grant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...identity.authHeader },
+        body: JSON.stringify({ agent_id: agent.id }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        // A funding-gap failure still returns a real contract_id (the hire
+        // itself succeeded) — surface the specific reason, not a generic
+        // failure, and let the buyer still go look at the hire if they want.
+        throw Object.assign(new Error(data.error || 'Failed to grant Altana session'), {
+          contractId: data.contract_id as string | undefined,
+        });
+      }
+
+      haptic?.notificationOccurred('success');
+      router.push(`/hire/${data.contract_id}`);
+    } catch (err) {
+      haptic?.notificationOccurred('error');
+      const message = err instanceof Error ? err.message : 'Failed to grant Altana session';
+      const contractId = err instanceof Error ? (err as Error & { contractId?: string }).contractId : undefined;
+      setGrantMessage({ type: 'error', text: message, contractId });
+    } finally {
+      setGrantingSession(false);
+    }
+  }, [agent, identity, haptic, router]);
 
   // Setup Main Button for hire. handleHire is a ref so the onClick/offClick
   // pair below always target the SAME function identity — registering a new
@@ -285,8 +340,8 @@ export default function AgentDetailPage() {
         </div>
       </div>
 
-      {/* Live signal — real market data combined with this agent's own strategy, see src/lib/market/signals.ts */}
-      {agent.source === 'user' && (
+      {/* Live signal — real market data combined with this agent's own strategy, see src/lib/market/signals.ts. Excluded for AltanaGridBot (see the fetch guard above) — never rendered, so it can't get stuck on "Computing…" forever. */}
+      {agent.source === 'user' && !agent.metadata?.altana_session_agent && (
         <div className="rounded-xl border border-emerald-900/40 bg-emerald-900/10 p-4 mb-6">
           <div className="flex items-center gap-1.5 mb-2">
             <TrendingUp className="h-4 w-4 text-emerald-400" strokeWidth={2} />
@@ -499,6 +554,53 @@ export default function AgentDetailPage() {
           }`}
         >
           {hireMessage.text}
+        </div>
+      )}
+
+      {/* Dedicated Altana session grant — additive, separate from the normal
+          Hire button above (which still works normally for this free agent
+          too). Real onchain session: call allowlist, spend cap, expiry,
+          registered in Altana's KeyStore registry — see /api/altana/grant. */}
+      {agent.source === 'user' && agent.metadata?.altana_session_agent && (
+        <div className="mt-4 rounded-xl border border-sky-900/40 bg-sky-900/10 p-4">
+          <p className="text-xs text-sky-400 uppercase tracking-wider font-medium mb-2">
+            Altana session (BSC testnet)
+          </p>
+          <p className="text-sm text-gray-400 mb-3">
+            Grants a real, self-custodial Altana session scoped to a call allowlist, a native BNB
+            spend cap, and an expiry — registered onchain in the public KeyStore registry. You can
+            view the exact permissions and revoke it at any time from the hire page.
+          </p>
+          <button
+            onClick={handleGrantAltanaSession}
+            disabled={grantingSession || !isAuthenticated}
+            className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-blue-500 py-3 text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {grantingSession
+              ? 'Granting session…'
+              : !isAuthenticated
+              ? 'Connect wallet to grant a session'
+              : 'Grant Altana session'}
+          </button>
+          {grantMessage && (
+            <div
+              className={`mt-3 p-3 rounded-xl border text-sm ${
+                grantMessage.type === 'success'
+                  ? 'border-green-800/30 bg-green-900/10 text-green-400'
+                  : 'border-red-800/30 bg-red-900/10 text-red-400'
+              }`}
+            >
+              <p>{grantMessage.text}</p>
+              {grantMessage.contractId && (
+                <Link
+                  href={`/hire/${grantMessage.contractId}`}
+                  className="inline-block mt-1 text-amber-400 hover:text-amber-300 underline"
+                >
+                  View the hire anyway →
+                </Link>
+              )}
+            </div>
+          )}
         </div>
       )}
 
