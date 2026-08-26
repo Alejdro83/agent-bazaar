@@ -249,7 +249,10 @@ export default function AgentDetailPage() {
   handleHireRef.current = handleHire;
 
   useEffect(() => {
-    if (!agent || !mainButton || agent.source !== 'user') return;
+    // Same reasoning as the fallback web Hire button below: AltanaGridBot's
+    // dedicated grant flow hires it internally, so it's excluded from the
+    // generic Telegram MainButton hire path too.
+    if (!agent || !mainButton || agent.source !== 'user' || agent.metadata?.altana_session_agent) return;
 
     const onClick = () => handleHireRef.current();
 
@@ -557,10 +560,11 @@ export default function AgentDetailPage() {
         </div>
       )}
 
-      {/* Dedicated Altana session grant — additive, separate from the normal
-          Hire button above (which still works normally for this free agent
-          too). Real onchain session: call allowlist, spend cap, expiry,
-          registered in Altana's KeyStore registry — see /api/altana/grant. */}
+      {/* Dedicated Altana session grant — this IS AltanaGridBot's hire flow
+          (the normal Hire button/MainButton are excluded for this agent
+          above, so this is the only way to hire it). Real onchain session:
+          call allowlist, spend cap, expiry, registered in Altana's KeyStore
+          registry — see /api/altana/grant. */}
       {agent.source === 'user' && agent.metadata?.altana_session_agent && (
         <div className="mt-4 rounded-xl border border-sky-900/40 bg-sky-900/10 p-4">
           <p className="text-xs text-sky-400 uppercase tracking-wider font-medium mb-2">
@@ -614,6 +618,12 @@ export default function AgentDetailPage() {
           View on 8004scan ↗
         </a>
       ) : (
+        // AltanaGridBot's dedicated "Grant Altana session" button above
+        // already hires it internally (POST /api/altana/grant composes the
+        // hire) — showing the normal Hire button too would let someone
+        // create a session-less contract for it by mistake and never see
+        // the Altana panel at all.
+        !agent.metadata?.altana_session_agent &&
         !mainButton && (
           <button
             onClick={handleHire}
