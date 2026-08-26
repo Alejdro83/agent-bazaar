@@ -52,7 +52,7 @@ export function MiniAppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-4">
+      <main className="max-w-7xl mx-auto px-4 py-4 pb-40">
         {children}
       </main>
 
