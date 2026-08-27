@@ -7,6 +7,7 @@ hackathon (Aug 5 – Sep 9, 2026).
 **Live:** [agent-bazaar-wheat.vercel.app](https://agent-bazaar-wheat.vercel.app) · Bot: `@Bnb_mrkt_bot`
 **TermiX submission:** [`termix-report/AGENT_ADVANTAGE_REPORT.md`](./termix-report/AGENT_ADVANTAGE_REPORT.md)
 **PancakeSwap Partner Challenge submission:** [`pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md`](./pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md)
+**MCP agent-to-agent demo:** [`mcp-demo-report/MCP_AGENT_TO_AGENT_DEMO.md`](./mcp-demo-report/MCP_AGENT_TO_AGENT_DEMO.md) — a real MCP client discovering and hiring a marketplace agent, zero human clicks
 
 ## How this hits BNB Chain's own judging bar
 
