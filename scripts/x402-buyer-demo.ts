@@ -11,12 +11,20 @@
  * full story (Vistara-Labs' facilitator.b402.ai is NXDOMAIN; Binance's own
  * gated b402 API needs real merchant onboarding this project doesn't have).
  *
- * Needs a funded buyer wallet: set X402_BUYER_WALLET_PRIVATE_KEY to a
- * private key whose address holds testnet $U (NOT tBNB — this rail is
- * gasless by design for the buyer). Get testnet $U by messaging
- * https://t.me/bnbchain_official_bot with "I would like to get U to my
- * wallet <address>" (see @bnbagent/studio-cli's README) — more options at
- * https://united-coin-u.github.io/u-faucet/. Without funding this fails
+ * Needs a funded buyer wallet — reuses ALTANA_DEMO_WALLET_PRIVATE_KEY
+ * (0x8d147CFFBb304d57C744b4f8DB7Eb266c8e0Aa25) as BOTH buyer and
+ * facilitator/payTo on purpose: a real, verifiable self-transfer, chosen
+ * over a fresh wallet because this one already has real testnet history
+ * a faucet's anti-sybil check is likelier to accept (the exact friction
+ * already hit once with Altana's own faucet — see
+ * altana-report/NEXT_STEPS.md). Needs testnet $U specifically (NOT
+ * tBNB — this rail is gasless by design for the buyer). Get testnet $U by
+ * messaging https://t.me/bnbchain_official_bot with "I would like to get
+ * U to my wallet 0x8d147CFFBb304d57C744b4f8DB7Eb266c8e0Aa25" (see
+ * @bnbagent/studio-cli's README) — more options at
+ * https://united-coin-u.github.io/u-faucet/. Set
+ * X402_BUYER_WALLET_PRIVATE_KEY instead to use a separate wallet (e.g. to
+ * demo a genuine two-party transfer later). Without funding this fails
  * with a clear, specific error rather than a generic crash.
  *
  * Usage: npx tsx --env-file-if-exists=.env.local scripts/x402-buyer-demo.ts
@@ -50,9 +58,18 @@ function randomNonce(): `0x${string}` {
 }
 
 async function main() {
-  const privateKey = process.env.X402_BUYER_WALLET_PRIVATE_KEY;
+  // Same wallet as buyer AND facilitator/payTo (ALTANA_DEMO_WALLET_PRIVATE_KEY,
+  // see src/lib/x402/merchant.ts) — a real, verifiable self-transfer, not a
+  // fake one. Chosen on purpose over a fresh wallet: this wallet already has
+  // real testnet history and a real tBNB balance, which the ERC-8183 $U
+  // faucet's undocumented anti-sybil check is more likely to accept than a
+  // brand-new, empty address — the exact same friction already hit once
+  // with Altana's own testnet faucet (see altana-report/NEXT_STEPS.md).
+  // X402_BUYER_WALLET_PRIVATE_KEY still overrides this if ever set, e.g. to
+  // demo a genuine two-party transfer later.
+  const privateKey = process.env.X402_BUYER_WALLET_PRIVATE_KEY || process.env.ALTANA_DEMO_WALLET_PRIVATE_KEY;
   if (!privateKey) {
-    throw new Error('X402_BUYER_WALLET_PRIVATE_KEY not set — see this script\'s header comment for how to fund one.');
+    throw new Error('Neither X402_BUYER_WALLET_PRIVATE_KEY nor ALTANA_DEMO_WALLET_PRIVATE_KEY is set — see this script\'s header comment.');
   }
   const buyer = privateKeyToAccount(privateKey as `0x${string}`);
   const publicClient = createPublicClient({ chain: bscTestnet, transport: http() });
