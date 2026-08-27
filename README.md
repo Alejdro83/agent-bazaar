@@ -8,15 +8,48 @@ hackathon (Aug 5 – Sep 9, 2026).
 **TermiX submission:** [`termix-report/AGENT_ADVANTAGE_REPORT.md`](./termix-report/AGENT_ADVANTAGE_REPORT.md)
 **PancakeSwap Partner Challenge submission:** [`pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md`](./pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md)
 
+## How this hits BNB Chain's own judging bar
+
+Quoting the hackathon's own published criteria (bnbchain.org/en/hackathons/smart-money-era,
+checked 2026-08-27), not a paraphrase — each one mapped to the actual code/data
+behind it, not just a claim:
+
+| Criterion (BNB Chain's own wording) | How this build hits it |
+|---|---|
+| *"Land, find an agent by category, understand what it does, activate it, with minimal friction"* | Browse → agent detail → hire is 3 taps in the Mini App or 3 clicks on web, same code both ways (`src/app/agent/[id]`, `src/app/hire/[contractId]`). Hiring runs the agent's real analysis and hands back a real output screen — no extra step to "see what you get." |
+| *"Real-time, accurate data that goes beyond basic counts"* | Every hireable agent's number comes from a live fetch (Venus/Binance/DefiLlama/PancakeSwap SDK) combined with its own strategy config — not a shared per-category stat. See "Data quality" below for what "accurate" means in practice here. |
+| *"All four categories surfaced with equal depth"* | `rebalancing`, `grid_trading`, `yield_optimisation`, `health_factor` each have real hireable agents, real live signals, and real backtests — none is a stub category with fewer real agents than the others. |
+
+## Data quality: nothing here is fabricated
+
+This is the literal judging criterion above, taken further than the minimum:
+
+- **Never a fake number.** `computeAgentSignal()` (`src/lib/market/signals.ts`)
+  either returns a real live-data result or **throws** — there is no
+  fallback branch that invents a plausible-looking figure. The UI (`src/app/agent/[id]/page.tsx`)
+  catches that and shows an explicit "signal unavailable" state
+  (`setSignalError`), never a stale or made-up value silently standing in.
+- **Backtests are labeled, not implied as live.** Every track record says
+  "backtest, not live capital" directly on the page — real historical data
+  (90 days of Binance klines, 365 days for health-factor survival, real
+  DefiLlama pool history), never dressed up as a live P&L.
+- **Reputation is real activity only.** The seed/demo reviews and inflated
+  hire counts from earlier testing were found and purged (2026-08-25) — the
+  10 hireable agents' stats reflect only genuine hires through the real
+  `/api/contracts` flow.
+- **8004scan-indexed agents are labeled browse-only**, never presented as
+  something we control the execution/payment for — see "Scope decisions"
+  below for the full list of what's explicitly not claimed.
+
 ## What's real here
 
 Every claim below is backed by something you can check yourself — a real
 transaction on BscScan, a real API response, real code. None of it is a
 scaffold or a mock left over from planning.
 
-- **88+ real agents on BSC** (growing daily) — ~79 indexed from live ERC-8004
+- **90+ real agents on BSC** (growing daily) — ~80 indexed from live ERC-8004
   identities via 8004scan (browse-only, they're real third-party agents we
-  don't control), 9 of our own hireable listings, all registered onchain.
+  don't control), 10 of our own hireable listings, all registered onchain.
   Evenly spread across the hackathon's 4 required categories: `rebalancing`,
   `grid_trading`, `yield_optimisation`, `health_factor`. Resyncs daily via a
   Vercel cron.
@@ -24,7 +57,7 @@ scaffold or a mock left over from planning.
   ERC-8004 Identity Registry on BSC testnet via `@bnbagent/sdk`, gas-free via
   the MegaFuel paymaster. Real, BscScan-verifiable transaction, shown right
   on the agent's page.
-- **Real per-category live data** — each of the 9 hireable agents combines
+- **Real per-category live data** — each of the 10 hireable agents combines
   its own strategy config with a real-time fetch (Venus, Binance, DefiLlama,
   or PancakeSwap's own routing SDK) to show a genuinely different number
   from other agents in the same category: max safe borrow, grid spacing,
