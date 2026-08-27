@@ -257,7 +257,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium text-green-400">
-                        ${contract.pricing_value}
+                        {contract.pricing_currency === 'USD' ? `$${contract.pricing_value}` : `${contract.pricing_value} ${contract.pricing_currency}`}
                       </p>
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full ${
@@ -413,7 +413,7 @@ export default function DashboardPage() {
                     Buyer: {contract.buyer_id.slice(0, 8)}...
                   </p>
                   <p className="text-sm font-medium text-green-400">
-                    ${contract.pricing_value} {contract.pricing_currency}
+                    {contract.pricing_currency === 'USD' ? `$${contract.pricing_value}` : `${contract.pricing_value} ${contract.pricing_currency}`}
                   </p>
                 </div>
                 {contract.expires_at && (

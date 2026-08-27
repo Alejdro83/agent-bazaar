@@ -52,6 +52,8 @@ interface Agent {
     track_record?: Record<string, unknown>;
     /** Marks agents (currently just AltanaGridBot) hireable through the dedicated Altana session-grant flow below, rather than the normal Hire button — and excluded from the Live Signal card, since a session grant/revoke IS its real output, not a market read. */
     altana_session_agent?: boolean;
+    /** Marks agents (currently just X402PayBot) hireable through the dedicated x402 settlement flow below, rather than the normal Hire button — the real, self-hosted x402/B402 settlement IS its output, not a market read. */
+    payment_rail?: string;
   } | null;
 }
 
@@ -84,6 +86,10 @@ export default function AgentDetailPage() {
   const [signalError, setSignalError] = useState(false);
   const [grantingSession, setGrantingSession] = useState(false);
   const [grantMessage, setGrantMessage] = useState<
+    { type: 'success' | 'error'; text: string; contractId?: string } | null
+  >(null);
+  const [x402Hiring, setX402Hiring] = useState(false);
+  const [x402Message, setX402Message] = useState<
     { type: 'success' | 'error'; text: string; contractId?: string } | null
   >(null);
 
@@ -120,12 +126,17 @@ export default function AgentDetailPage() {
         if (!res.ok) throw new Error('Agent not found');
         const data = await res.json();
         setAgent(data.agent);
-        // AltanaGridBot's real value is the session/execution mechanism, not
-        // a market read — computeAgentSignal's grid_trading case would fall
-        // through to the generic ATR-grid branch for it (no matching
-        // strategy) and show a misleading number, so it's excluded here
-        // rather than wired into that switch case.
-        if (data.agent.source === 'user' && !data.agent.metadata?.altana_session_agent) {
+        // AltanaGridBot's and X402PayBot's real value is the
+        // session/settlement mechanism, not a market read —
+        // computeAgentSignal's grid_trading case would fall through to the
+        // generic ATR-grid branch for either (no matching strategy) and
+        // show a misleading number, so both are excluded here rather than
+        // wired into that switch case.
+        if (
+          data.agent.source === 'user' &&
+          !data.agent.metadata?.altana_session_agent &&
+          data.agent.metadata?.payment_rail !== 'x402'
+        ) {
           fetch(`/api/market/signal?agent_id=${data.agent.id}`)
             .then((r) => (r.ok ? r.json() : Promise.reject()))
             .then((d: { signal: AgentSignal }) => setSignal(d.signal))
@@ -241,6 +252,36 @@ export default function AgentDetailPage() {
     }
   }, [agent, identity, haptic, router]);
 
+  // Dedicated x402/B402 settlement flow — this IS X402PayBot's hire flow
+  // (the normal Hire button/MainButton are excluded for this agent below).
+  // Real, gasless, self-hosted settlement: see POST /api/contracts/x402.
+  const handleX402Hire = useCallback(async () => {
+    if (!agent || !identity) return;
+
+    haptic?.impactOccurred('medium');
+    setX402Hiring(true);
+    setX402Message(null);
+
+    try {
+      const res = await fetch('/api/contracts/x402', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...identity.authHeader },
+        body: JSON.stringify({ agentId: agent.id }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'x402 settlement failed');
+
+      haptic?.notificationOccurred('success');
+      router.push(`/hire/${data.contract.id}`);
+    } catch (err) {
+      haptic?.notificationOccurred('error');
+      setX402Message({ type: 'error', text: err instanceof Error ? err.message : 'x402 settlement failed' });
+    } finally {
+      setX402Hiring(false);
+    }
+  }, [agent, identity, haptic, router]);
+
   // Setup Main Button for hire. handleHire is a ref so the onClick/offClick
   // pair below always target the SAME function identity — registering a new
   // closure each render without a matching offClick was leaking handlers
@@ -250,9 +291,17 @@ export default function AgentDetailPage() {
 
   useEffect(() => {
     // Same reasoning as the fallback web Hire button below: AltanaGridBot's
-    // dedicated grant flow hires it internally, so it's excluded from the
-    // generic Telegram MainButton hire path too.
-    if (!agent || !mainButton || agent.source !== 'user' || agent.metadata?.altana_session_agent) return;
+    // dedicated grant flow and X402PayBot's dedicated settlement flow both
+    // hire internally, so they're excluded from the generic Telegram
+    // MainButton hire path too.
+    if (
+      !agent ||
+      !mainButton ||
+      agent.source !== 'user' ||
+      agent.metadata?.altana_session_agent ||
+      agent.metadata?.payment_rail === 'x402'
+    )
+      return;
 
     const onClick = () => handleHireRef.current();
 
@@ -326,10 +375,11 @@ export default function AgentDetailPage() {
           <div>
             <p className="text-xs text-gray-500 uppercase tracking-wider">Pricing</p>
             <p className="text-2xl font-bold text-white mt-1">
-              {agent.pricing_type === 'free' ? 'Free' :
+              {agent.metadata?.payment_rail === 'x402' ? `${agent.pricing_value} ${agent.pricing_currency}` :
+               agent.pricing_type === 'free' ? 'Free' :
                agent.pricing_type === 'percentage' ? `${agent.pricing_value}%` :
                `$${agent.pricing_value}`}
-              {agent.pricing_type === 'fixed' && (
+              {agent.pricing_type === 'fixed' && agent.metadata?.payment_rail !== 'x402' && (
                 <span className="text-sm text-gray-500 font-normal">/mo</span>
               )}
             </p>
@@ -343,8 +393,8 @@ export default function AgentDetailPage() {
         </div>
       </div>
 
-      {/* Live signal — real market data combined with this agent's own strategy, see src/lib/market/signals.ts. Excluded for AltanaGridBot (see the fetch guard above) — never rendered, so it can't get stuck on "Computing…" forever. */}
-      {agent.source === 'user' && !agent.metadata?.altana_session_agent && (
+      {/* Live signal — real market data combined with this agent's own strategy, see src/lib/market/signals.ts. Excluded for AltanaGridBot and X402PayBot (see the fetch guard above) — never rendered, so it can't get stuck on "Computing…" forever. */}
+      {agent.source === 'user' && !agent.metadata?.altana_session_agent && agent.metadata?.payment_rail !== 'x402' && (
         <div className="rounded-xl border border-emerald-900/40 bg-emerald-900/10 p-4 mb-6">
           <div className="flex items-center gap-1.5 mb-2">
             <TrendingUp className="h-4 w-4 text-emerald-400" strokeWidth={2} />
@@ -490,7 +540,8 @@ export default function AgentDetailPage() {
           <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-3">
             <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Payment</p>
             <p className="text-sm text-gray-300">
-              {agent.pricing_type === 'free' ? 'Free to use' :
+              {agent.metadata?.payment_rail === 'x402' ? `${agent.pricing_value} ${agent.pricing_currency}, settled per hire via x402 (gasless)` :
+               agent.pricing_type === 'free' ? 'Free to use' :
                agent.pricing_type === 'percentage' ? `${agent.pricing_value}% of yield generated` :
                `$${agent.pricing_value} per month`}
             </p>
@@ -608,6 +659,47 @@ export default function AgentDetailPage() {
         </div>
       )}
 
+      {/* Dedicated x402/B402 settlement — this IS X402PayBot's hire flow
+          (the normal Hire button/MainButton are excluded for this agent
+          above, so this is the only way to hire it). Real settlement:
+          self-hosted merchant, EIP-3009 authorization, gasless for the
+          buyer — see /api/contracts/x402. */}
+      {agent.source === 'user' && agent.metadata?.payment_rail === 'x402' && (
+        <div className="mt-4 rounded-xl border border-emerald-900/40 bg-emerald-900/10 p-4">
+          <p className="text-xs text-emerald-400 uppercase tracking-wider font-medium mb-2">
+            x402 payment (BSC testnet)
+          </p>
+          <p className="text-sm text-gray-400 mb-3">
+            Settles a real, gasless x402/B402 payment — an EIP-3009 authorization verified and
+            broadcast on-chain by a self-hosted facilitator (no third-party facilitator
+            dependency). The resulting settlement transaction is the real deliverable, shown on
+            the hire page and verifiable on BscScan.
+          </p>
+          <button
+            onClick={handleX402Hire}
+            disabled={x402Hiring || !isAuthenticated}
+            className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 py-3 text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {x402Hiring
+              ? 'Settling payment…'
+              : !isAuthenticated
+              ? 'Connect to hire'
+              : 'Pay via x402 (0.1 U, gasless)'}
+          </button>
+          {x402Message && (
+            <div
+              className={`mt-3 p-3 rounded-xl border text-sm ${
+                x402Message.type === 'success'
+                  ? 'border-green-800/30 bg-green-900/10 text-green-400'
+                  : 'border-red-800/30 bg-red-900/10 text-red-400'
+              }`}
+            >
+              <p>{x402Message.text}</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {agent.source === '8004scan' ? (
         <a
           href={`https://8004scan.io/agents/${agent.is_testnet ? 'bsc-testnet' : 'bsc'}/${agent.external_agent_id?.split(':').pop()}`}
@@ -618,12 +710,13 @@ export default function AgentDetailPage() {
           View on 8004scan ↗
         </a>
       ) : (
-        // AltanaGridBot's dedicated "Grant Altana session" button above
-        // already hires it internally (POST /api/altana/grant composes the
-        // hire) — showing the normal Hire button too would let someone
-        // create a session-less contract for it by mistake and never see
-        // the Altana panel at all.
+        // AltanaGridBot's dedicated "Grant Altana session" button and
+        // X402PayBot's dedicated "Pay via x402" button above already hire
+        // internally — showing the normal Hire button too would let
+        // someone create a contract for either without the payment
+        // actually settling the way its panel describes.
         !agent.metadata?.altana_session_agent &&
+        agent.metadata?.payment_rail !== 'x402' &&
         !mainButton && (
           <button
             onClick={handleHire}

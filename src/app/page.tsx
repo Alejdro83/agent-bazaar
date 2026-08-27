@@ -26,6 +26,7 @@ interface Agent {
   category: string;
   pricing_type: string;
   pricing_value: number;
+  pricing_currency: string;
   avg_rating: number;
   total_hires: number;
   status: string;
@@ -37,8 +38,8 @@ interface Agent {
     is_verified?: boolean;
     supported_protocols?: string[];
   } | null;
-  /** `altana_session_agent` — see src/app/agent/[id]/page.tsx's Agent interface for why this skips Live Signal. */
-  metadata: { altana_session_agent?: boolean } | null;
+  /** `altana_session_agent`/`payment_rail` — see src/app/agent/[id]/page.tsx's Agent interface for why these skip Live Signal / affect pricing display. */
+  metadata: { altana_session_agent?: boolean; payment_rail?: string } | null;
 }
 
 const CATEGORIES = [
@@ -68,13 +69,21 @@ function CategoryBadge({ category }: { category: string }) {
   );
 }
 
-function PricingBadge({ type, value }: { type: string; value: number }) {
+function PricingBadge({ type, value, currency, isX402 }: { type: string; value: number; currency?: string; isX402?: boolean }) {
   if (type === 'free') {
     return <span className="text-green-400 text-sm font-medium">Free</span>;
   }
   if (type === 'percentage') {
     return (
       <span className="text-amber-400 text-sm font-medium">{value}% yield</span>
+    );
+  }
+  // x402-payable agents settle a flat testnet-token amount per hire, not a
+  // USD/mo subscription — see agent/[id]/page.tsx's pricing panel for the
+  // same distinction.
+  if (isX402) {
+    return (
+      <span className="text-amber-400 text-sm font-medium">{value} {currency}</span>
     );
   }
   return (
@@ -161,14 +170,19 @@ function AgentCard({ agent }: { agent: Agent }) {
             <CategoryBadge category={agent.category} />
           </div>
         </div>
-        <PricingBadge type={agent.pricing_type} value={agent.pricing_value} />
+        <PricingBadge
+          type={agent.pricing_type}
+          value={agent.pricing_value}
+          currency={agent.pricing_currency}
+          isX402={agent.metadata?.payment_rail === 'x402'}
+        />
       </div>
 
       <p className="text-sm text-gray-400 mb-3 line-clamp-2">
         {agent.description}
       </p>
 
-      {agent.source === 'user' && !agent.metadata?.altana_session_agent && (
+      {agent.source === 'user' && !agent.metadata?.altana_session_agent && agent.metadata?.payment_rail !== 'x402' && (
         <LiveSignalLine agentId={agent.id} category={agent.category} />
       )}
       {agent.source === '8004scan' && agent.erc8004_data && <ReputationLine data={agent.erc8004_data} />}

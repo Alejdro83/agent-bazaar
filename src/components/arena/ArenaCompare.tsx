@@ -39,6 +39,9 @@ interface ArenaResult {
 function formatPricing(a: AgentSide): string {
   if (a.pricing_type === 'free') return 'Free';
   if (a.pricing_type === 'percentage') return `${a.pricing_value}% of yield`;
+  // Non-USD fixed pricing (currently just X402PayBot's testnet $U) settles
+  // a flat token amount per hire, not a USD/mo subscription.
+  if (a.pricing_currency !== 'USD') return `${a.pricing_value} ${a.pricing_currency}`;
   return `$${a.pricing_value}/mo`;
 }
 
