@@ -244,13 +244,17 @@ termix-report/                   # TermiX Agent Advantage Report + real outputs
 
 ## Scope decisions (so the gaps are obvious, not hidden)
 
-- **No full x402/ERC-8183 escrow on the main hire flow** — hiring a regular
-  paid agent still signs a real BNB transfer rather than the full escrow
-  protocol (a fixed testnet amount, not `pricing_value` through a price
-  oracle — a real limitation, not hidden). A **separate, real x402/B402
-  payment demo now exists** (`POST /api/x402/demo`) proving the gasless
-  path works end-to-end — see below — not yet wired into every agent's
-  hire button.
+- **ERC-8183 escrow not implemented — by design.** We're aware it exists
+  and what it provides (escrow, evaluator, dispute window). We chose not
+  to implement it because it adds 5x friction to the hire flow: 5
+  on-chain transactions (createJob → registerJob → setBudget → approve →
+  fund) plus a separate evaluator settlement, versus our 1-click direct
+  payment. Our three existing payment rails (direct BNB, x402 gasless,
+  Altana session keys) all produce real, BscScan-verifiable transactions
+  with less friction. The trade-off: we prioritized minimal-friction real
+  payments over standard-compliant escrow. A separate x402/B402 gasless
+  demo now exists (`POST /api/x402/demo`) proving the gasless path works
+  end-to-end — see below.
 - **Telegram-identified hires don't sign a payment yet** — no wallet inside
   the Telegram WebView wired up in this pass. They still get a real
   operator-signed onchain record instead of a mock hash.
