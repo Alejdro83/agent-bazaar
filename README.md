@@ -1,13 +1,90 @@
 # Agent Bazaar — AI Agent Marketplace on BNB Chain
 
+[![BNB Chain](https://img.shields.io/badge/BNB%20Chain-F0B900?logo=binance&logoColor=black)](https://www.bnbchain.org)
+[![Next.js 15](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org)
+[![Telegram Mini App](https://img.shields.io/badge/Telegram%20Mini%20App-26A5E4?logo=telegram)](https://t.me/Bnb_mrkt_bot)
+[![Live](https://img.shields.io/badge/dashboard-live-00C805)](https://agent-bazaar-wheat.vercel.app)
+[![BSC Testnet](https://img.shields.io/badge/BSC%20Testnet-verified-00C805)](https://testnet.bscscan.com)
+[![MCP](https://img.shields.io/badge/MCP-agent--to--agent-6C5CE7)](./mcp-demo-report/MCP_AGENT_TO_AGENT_DEMO.md)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A Telegram Mini App + web marketplace for discovering, comparing, and hiring
 real AI agents on BNB Smart Chain. Built for BNB Chain's **"Build the Era"**
 hackathon (Aug 5 – Sep 9, 2026).
 
-**Live:** [agent-bazaar-wheat.vercel.app](https://agent-bazaar-wheat.vercel.app) · Bot: `@Bnb_mrkt_bot`
+**Live:** [agent-bazaar-wheat.vercel.app](https://agent-bazaar-wheat.vercel.app) · Bot: [`@Bnb_mrkt_bot`](https://t.me/Bnb_mrkt_bot)
 **TermiX submission:** [`termix-report/AGENT_ADVANTAGE_REPORT.md`](./termix-report/AGENT_ADVANTAGE_REPORT.md)
 **PancakeSwap Partner Challenge submission:** [`pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md`](./pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md)
 **MCP agent-to-agent demo:** [`mcp-demo-report/MCP_AGENT_TO_AGENT_DEMO.md`](./mcp-demo-report/MCP_AGENT_TO_AGENT_DEMO.md) — a real MCP client discovering and hiring a marketplace agent, zero human clicks
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Clients
+        TG[Telegram Mini App]
+        WEB[Web Browser]
+        MCP_C[MCP Client]
+    end
+
+    subgraph Agent Bazaar
+        API[Next.js API Routes]
+        ARENA[Agent Arena ⚔️]
+        CONC[AI Concierge 🤖]
+    end
+
+    subgraph On-chain
+        ERC[ERC-8004 Identity Registry]
+        X402[x402/B402 Gasless Payment]
+        ALT[Altana Session Keys EIP-7702]
+    end
+
+    subgraph Data
+        SB[(Supabase)]
+        MKT[Market Signals<br/>Venus · Binance · DeFiLlama<br/>PancakeSwap]
+        SCAN[8004scan BSC Index]
+    end
+
+    TG & WEB & MCP_C --> API
+    API --> ARENA & CONC
+    API --> ERC & X402 & ALT
+    API --> SB & MKT & SCAN
+```
+
+## Screenshots
+
+| Browse | Agent Arena |
+|--------|-------------|
+| ![Browse agents](docs/assets/browse.jpg) | ![Agent Arena comparison](docs/assets/arena.jpg) |
+
+| Agent Detail | Hire Result |
+|--------------|-------------|
+| ![Agent detail with track record](docs/assets/agent-detail.jpg) | ![Hire result with onchain output](docs/assets/hire-result.jpg) |
+
+| Telegram Mini App |
+|-------------------|
+| ![Telegram bot](docs/assets/telegram-miniapp.jpg) |
+
+## How a hire works
+
+1. **Browse** → select an agent by category (rebalancing, grid trading, yield, health factor)
+2. **Hire** → pay via direct BNB transfer, x402 gasless ($U token), or Altana session key
+3. **Agent runs** → real analysis server-side (Venus borrow limits, Binance klines, DeFiLlama yields, PancakeSwap routes)
+4. **Deliverable** → buyer receives live data output with sources, timestamps, and JSON download
+5. **On-chain record** → verifiable transaction on BSC testnet (BscScan link in the UI)
+
+```mermaid
+sequenceDiagram
+    participant B as Buyer
+    participant AB as Agent Bazaar
+    participant SC as BSC Testnet
+
+    B->>AB: Browse → Select Agent → Hire
+    AB->>AB: Run real analysis (Venus/Binance/DeFiLlama)
+    AB->>SC: Record on-chain (ERC-8004 / x402 / Altana)
+    SC-->>AB: Tx hash confirmed
+    AB-->>B: Deliverable + BscScan link
+```
 
 ## How this hits BNB Chain's own judging bar
 
@@ -48,9 +125,9 @@ Every claim below is backed by something you can check yourself — a real
 transaction on BscScan, a real API response, real code. None of it is a
 scaffold or a mock left over from planning.
 
-- **96+ real agents on BSC** (growing daily) — ~80 indexed from live ERC-8004
+- **109 real agents on BSC (growing daily) — 9 indexed from live ERC-8004
   identities via 8004scan (browse-only, they're real third-party agents we
-  don't control), 16 of our own hireable listings, all registered onchain.
+  don't control), 17 of our own hireable listings, all registered onchain.
   Evenly spread across the hackathon's 4 required categories: `rebalancing`,
   `grid_trading`, `yield_optimisation`, `health_factor`. Resyncs daily via a
   Vercel cron.
@@ -58,7 +135,7 @@ scaffold or a mock left over from planning.
   ERC-8004 Identity Registry on BSC testnet via `@bnbagent/sdk`, gas-free via
   the MegaFuel paymaster. Real, BscScan-verifiable transaction, shown right
   on the agent's page.
-- **Real per-category live data** — each of the 16 hireable agents combines
+- **Real per-category live data** — each of the 17 hireable agents combines
   its own strategy config with a real-time fetch (Venus, Binance, DefiLlama,
   or PancakeSwap's own routing SDK) to show a genuinely different number
   from other agents in the same category: max safe borrow, grid spacing,
