@@ -24,6 +24,7 @@ interface TelegramWebApp {
   expand: () => void;
   close: () => void;
   sendData: (data: string) => void;
+  openLink: (url: string, options?: { try_instant_view?: boolean }) => void;
   MainButton: {
     text: string;
     show: () => void;
@@ -69,6 +70,12 @@ interface UseTelegramReturn {
   startParam: string | null;
   close: () => void;
   expand: () => void;
+  /** Opens a URL in the device's real external browser, outside the Mini
+   * App's WebView — the escape hatch for anything that needs a full
+   * browser context the WebView doesn't reliably support (e.g. a wallet
+   * connect flow), rather than trying to make that work inside the WebView
+   * itself. No-op outside Telegram (webApp is null there). */
+  openLink: (url: string) => void;
 }
 
 export function useTelegram(): UseTelegramReturn {
@@ -132,6 +139,7 @@ export function useTelegram(): UseTelegramReturn {
 
   const close = useCallback(() => webApp?.close(), [webApp]);
   const expand = useCallback(() => webApp?.expand(), [webApp]);
+  const openLink = useCallback((url: string) => webApp?.openLink(url), [webApp]);
 
   return {
     webApp,
@@ -146,5 +154,6 @@ export function useTelegram(): UseTelegramReturn {
     startParam: webApp?.initDataUnsafe?.start_param || null,
     close,
     expand,
+    openLink,
   };
 }

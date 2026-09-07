@@ -68,8 +68,8 @@ interface Rating {
 export default function AgentDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { haptic, mainButton } = useTelegram();
-  const { identity, isAuthenticated } = useIdentity();
+  const { haptic, mainButton, openLink } = useTelegram();
+  const { identity, isAuthenticated, isInTelegram } = useIdentity();
   const { sendTransactionAsync } = useSendTransaction();
   const [agent, setAgent] = useState<Agent | null>(null);
   const [ratings, setRatings] = useState<Rating[]>([]);
@@ -743,6 +743,30 @@ export default function AgentDetailPage() {
           </button>
         )
       )}
+
+      {/* Telegram's WebView can't reliably run a wallet-connect flow (the
+          WalletConnect modal + deep-linking to an external wallet app
+          behaves inconsistently embedded vs. in a real browser tab) — so
+          rather than a real payment silently degrading to the operator-
+          signed fallback below, a paid hire from inside Telegram gets a
+          real way to still pay with an actual wallet: hand off to the exact
+          same page in the device's real browser via WebApp.openLink, where
+          the wallet-connect flow above already works as-is. No new payment
+          code — just a bridge to the one that already exists. */}
+      {isInTelegram &&
+        agent.source === 'user' &&
+        agent.pricing_type !== 'free' &&
+        !agent.metadata?.altana_session_agent &&
+        agent.metadata?.payment_rail !== 'x402' && (
+          <button
+            onClick={() =>
+              openLink(`${process.env.NEXT_PUBLIC_APP_URL}/agent/${agent.id}`)
+            }
+            className="w-full mt-3 rounded-xl border border-gray-700 py-3 text-sm text-gray-300 font-medium hover:bg-gray-900/50 transition-colors"
+          >
+            Open in browser to pay with your wallet ↗
+          </button>
+        )}
     </MiniAppShell>
   );
 }

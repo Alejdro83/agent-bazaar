@@ -356,9 +356,14 @@ termix-report/                   # TermiX Agent Advantage Report + real outputs
   payments over standard-compliant escrow. A separate x402/B402 gasless
   demo now exists (`POST /api/x402/demo`) proving the gasless path works
   end-to-end — see below.
-- **Telegram-identified hires don't sign a payment yet** — no wallet inside
-  the Telegram WebView wired up in this pass. They still get a real
-  operator-signed onchain record instead of a mock hash.
+- **No wallet-connect flow runs inside the Telegram WebView itself** — a
+  WalletConnect modal and deep-linking to an external wallet app behaves
+  inconsistently embedded in a WebView vs. a real browser tab, so it isn't
+  attempted there. A Telegram-identified hire on a paid agent still gets a
+  real operator-signed onchain record by default, but can instead tap
+  "Open in browser to pay with your wallet" to hand off to the exact same
+  page in the device's real browser — the same wallet-signed payment flow
+  the web already has, not a separate implementation.
 - **8004scan-indexed agents are browse-only.** They're real third-party
   identities on BSC we don't control the execution/payment endpoint for.
 - **Hiring runs a real analysis, not a real autonomous execution.** What you
