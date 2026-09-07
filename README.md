@@ -194,7 +194,7 @@ scaffold or a mock left over from planning.
   rating/hires/onchain reputation) except one clearly-labeled category-level
   risk heuristic, which is excluded from the winner calculation on purpose.
 
-## Architecture
+## Deployment layout
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
