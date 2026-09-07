@@ -25,7 +25,7 @@ an earlier check:
 | Track | Prize | Literal requirement | Status |
 |---|---|---|---|
 | **Main — Build the BNB Agent Studio Marketplace** | $30,000 + official adoption | Functionality, Data Quality, Agent Diversity (4 categories, equal depth) | ✅ See "How this hits BNB Chain's own judging bar" below |
-| **Best Built with Altana** (AltLayer) | 50,000 Altana XP | *"Live onchain transactions in the Altana explorer, on testnet or mainnet"* | ✅ Real session grant + real capped swap + real revoke, all independently verified onchain — see "Altana session-key delegated execution" under Scope decisions below |
+| **Best Built with Altana** (AltLayer) | 50,000 Altana XP | *"Live onchain transactions in the Altana explorer, on testnet or mainnet"* | ✅ Real session grant + real capped swap + real revoke — verifiable directly in [Altana's own Keystore Explorer](https://testnet.altana.network/account/0x8d147CFFBb304d57C744b4f8DB7Eb266c8e0Aa25), not just BscScan — see "Altana session-key delegated execution" under Scope decisions below |
 | **TermiX Challenge** | $6,000 / $3,000 / $1,000 | Agent Advantage Report, 3+ real tasks, agent vs. non-agent, cost + time + output quality | ✅ [`termix-report/AGENT_ADVANTAGE_REPORT.md`](./termix-report/AGENT_ADVANTAGE_REPORT.md) |
 | **PancakeSwap Challenge** | 1,000 CAKE | Real benefit to PancakeSwap traders or liquidity providers | ✅ [`pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md`](./pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md) |
 
@@ -388,6 +388,14 @@ termix-report/                   # TermiX Agent Advantage Report + real outputs
     produced a second real, successful transaction
     ([`0xee7f5b8e...0c1be`](https://testnet.bscscan.com/tx/0xee7f5b8ea038307c64a1b8d29839eb5e1b579e0e921f8a7e4e4acb577a90c1be),
     status `1`).
+  - **Verifiable directly in Altana's own Keystore Explorer**, not just
+    BscScan — the specific evidence "Best Built with Altana" asks for:
+    [`testnet.altana.network/account/0x8d147CFFBb304d57C744b4f8DB7Eb266c8e0Aa25`](https://testnet.altana.network/account/0x8d147CFFBb304d57C744b4f8DB7Eb266c8e0Aa25)
+    shows the demo wallet's 3 real registered keys (1 root, 2 session) with
+    one session `Expired` and the other `Revoked` — that second one is the
+    exact session this hire flow granted then revoked, independently
+    confirming both the registration and the revocation without trusting
+    this README's word for it.
   - See `altana-report/NEXT_STEPS.md` for the funding history and exact
     commands to reproduce.
   - **Why a wallet we control, not your connected wallet.** A real buyer's
