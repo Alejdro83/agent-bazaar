@@ -31,6 +31,20 @@ app — `POST /api/altana/grant` → `GET /api/altana/session/[contractId]` →
   `0xee7f5b8ea038307c64a1b8d29839eb5e1b579e0e921f8a7e4e4acb577a90c1be`,
   status `1`, confirmed at block 127328184.
 
+## Verifiable independently, not just via BscScan
+
+Altana runs its own **Keystore Explorer** — a separate lookup tool from a
+normal chain explorer, purpose-built for verifying registered sessions —
+at [`testnet.altana.network`](https://testnet.altana.network). Looking up
+the demo wallet directly there
+([`/account/0x8d147CFFBb304d57C744b4f8DB7Eb266c8e0Aa25`](https://testnet.altana.network/account/0x8d147CFFBb304d57C744b4f8DB7Eb266c8e0Aa25))
+shows its 3 real registered keys (1 root, 2 session) — one session
+`Expired`, the other `Revoked`. That second one is the exact session the
+real production flow above granted then revoked: independent confirmation
+of both steps, without taking this report's word for it. This is the
+literal evidence "Best Built with Altana" asks for (*"live onchain
+transactions in the Altana explorer"*), not just a BscScan link.
+
 ## How the funding gap was actually closed
 
 The official BNB testnet faucet turned out to require the *requesting*

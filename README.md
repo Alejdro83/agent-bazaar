@@ -379,93 +379,37 @@ termix-report/                   # TermiX Agent Advantage Report + real outputs
   — so revocation status is unambiguous). The hire result page
   (`/hire/[contractId]`) shows the real permissions and a **Revoke
   session** button (`POST /api/altana/revoke`) — real, immediate, onchain.
-  `scripts/altana-demo-swap.ts` remains as the original standalone CLI
-  proof of the same mechanism (grant → execute a capped swap strictly
-  within the session, not the admin key).
-
-  **Fully exercised end-to-end in real production, with the demo wallet
-  funded on 2026-08-26** — not just the mechanism, an actual completed
-  swap through the session key:
-  - Real capped swap executed strictly through the session key (not the
-    admin key): tx
-    [`0x49fb7e0c...9e01`](https://testnet.bscscan.com/tx/0x49fb7e0cdb5c3a8ad6d9e280343cf6c20046bd7128a4d52205caab9a61759e01),
-    status `1`, verified directly via `eth_getTransactionReceipt` (not just
-    the SDK's own report).
-  - The exact same live product flow a buyer would use — `POST
-    /api/altana/grant` → `GET /api/altana/session/[contractId]` → `POST
-    /api/altana/revoke` — run against real production and verified onchain
-    at every step: grant produced a real KeyStore-registered session
-    (contract `1a3df19a-660b-4e81-a402-455621eba705`), the session panel
-    correctly read back the live allowlist/spend cap/expiry, and revoke
-    produced a second real, successful transaction
-    ([`0xee7f5b8e...0c1be`](https://testnet.bscscan.com/tx/0xee7f5b8ea038307c64a1b8d29839eb5e1b579e0e921f8a7e4e4acb577a90c1be),
-    status `1`).
-  - **Verifiable directly in Altana's own Keystore Explorer**, not just
-    BscScan — the specific evidence "Best Built with Altana" asks for:
-    [`testnet.altana.network/account/0x8d147CFFBb304d57C744b4f8DB7Eb266c8e0Aa25`](https://testnet.altana.network/account/0x8d147CFFBb304d57C744b4f8DB7Eb266c8e0Aa25)
-    shows the demo wallet's 3 real registered keys (1 root, 2 session) with
-    one session `Expired` and the other `Revoked` — that second one is the
-    exact session this hire flow granted then revoked, independently
-    confirming both the registration and the revocation without trusting
-    this README's word for it.
-  - See `altana-report/NEXT_STEPS.md` for the funding history and exact
-    commands to reproduce.
   - **Why a wallet we control, not your connected wallet.** A real buyer's
     MetaMask/WalletConnect account cannot grant this session today:
     `grantSession` needs to sign an EIP-7702 authorization, and viem's
     `signAuthorization` explicitly throws `AccountTypeNotSupportedError`
-    for JSON-RPC/injected accounts (see
-    `node_modules/viem/_esm/actions/wallet/signAuthorization.js`) — only a
-    raw private key (a `LocalAccount`) can sign one. That's a wallet-
-    ecosystem limitation as of today, not a gap in this implementation, so
-    this demo uses a dedicated wallet we control
-    (`ALTANA_DEMO_WALLET_PRIVATE_KEY`) as the "buyer" instead.
-  - **To run the full proof yourself:** generate a key
-    (`node -e "console.log(require('viem/accounts').generatePrivateKey())"`),
-    set it as `ALTANA_DEMO_WALLET_PRIVATE_KEY`, fund that address from the
-    [BNB Chain testnet faucet](https://testnet.bnbchain.org/faucet-smart),
-    then run `npx tsx --env-file-if-exists=.env.local scripts/altana-demo-swap.ts`
-    — it prints the real transaction hash and a BscScan testnet link.
+    for JSON-RPC/injected accounts — only a raw private key (a
+    `LocalAccount`) can sign one. That's a wallet-ecosystem limitation as
+    of today, not a gap in this implementation, so this demo uses a
+    dedicated wallet we control (`ALTANA_DEMO_WALLET_PRIVATE_KEY`) as the
+    "buyer" instead.
+  - **Fully exercised end-to-end in real production** — a real session
+    grant, a real capped swap through the session key, and a real revoke,
+    independently verifiable in Altana's own Keystore Explorer, not just
+    BscScan. Full proof (tx hashes, Keystore Explorer lookup, reproduction
+    steps) in [`altana-report/NEXT_STEPS.md`](./altana-report/NEXT_STEPS.md).
 
 - **x402/B402 gasless payment demo (`POST /api/x402/demo`), self-hosted.**
   Two officially-referenced facilitator paths were tried and ruled out by
   direct verification, not guesswork: Vistara-Labs' open facilitator
-  (`facilitator.b402.ai`) is NXDOMAIN (confirmed against Google's public
-  DoH resolver); Binance's own gated b402 merchant API needs real merchant
-  onboarding (client id, access token, RSA key) unavailable here. Landed
-  on [`@altananetwork/x402-server`](https://www.npmjs.com/package/@altananetwork/x402-server)
+  (`facilitator.b402.ai`) is NXDOMAIN; Binance's own gated b402 merchant
+  API needs real merchant onboarding (client id, access token, RSA key)
+  unavailable here. Landed on
+  [`@altananetwork/x402-server`](https://www.npmjs.com/package/@altananetwork/x402-server)
   instead — published by the same Altana Network this project already
   integrates for the session-key track above, a merchant **we run
   ourselves**, with no third-party facilitator uptime dependency. See
-  `src/lib/x402/merchant.ts` for the full story.
-
-  **Fully exercised end-to-end in real production, 2026-08-27** — a real
-  buyer (the same Altana demo wallet, reused deliberately as both buyer
-  and facilitator/payTo: a real, verifiable self-transfer, and a wallet a
-  faucet's anti-sybil check is more likely to accept than a brand-new
-  empty one, the same friction already hit once above) signs a real
-  EIP-3009 `TransferWithAuthorization` for 0.1 testnet **$U**
-  (`0xc70B8741...648E5565`, cross-verified against `@bnbagent/sdk`'s own
-  address manifest and a live `get_erc20_token_info` read), gets it
-  verified and settled on-chain by our own facilitator (gasless for the
-  buyer — only the facilitator's tBNB pays gas), and receives a real
-  `computeAgentSignal()` result back:
-  - Real settlement transaction: tx
-    [`0xf35d13fb...8a7c54`](https://testnet.bscscan.com/tx/0xf35d13fb63348856cae6467f2f52669384f2821a8e455d34be5fe99fd38a7c54),
-    status `success`, verified directly via `eth_getTransactionReceipt`
-    (not just the API's own report) — see `scripts/x402-buyer-demo.ts`.
-  - The facilitator wallet's real tBNB balance dropped by the exact gas
-    cost of that broadcast (0.297168 → 0.297160 tBNB), confirming a real
-    transaction was actually mined, not simulated.
-  - **To run the full proof yourself:** get testnet $U for a funded
-    wallet — message the official Telegram bot
-    [`@bnbchain_official_bot`](https://t.me/bnbchain_official_bot) with
-    "I would like to get U to my wallet `<address>`" (per
-    `@bnbagent/studio-cli`'s README; more options at
-    [united-coin-u.github.io/u-faucet](https://united-coin-u.github.io/u-faucet/)),
-    set `ALTANA_DEMO_WALLET_PRIVATE_KEY` (or `X402_BUYER_WALLET_PRIVATE_KEY`
-    for a separate buyer), then run
-    `npx tsx --env-file-if-exists=.env.local scripts/x402-buyer-demo.ts`.
+  `src/lib/x402/merchant.ts`.
+  - **Fully exercised end-to-end in real production** — a real buyer signs
+    a real EIP-3009 authorization, verified and settled onchain by our own
+    facilitator, gasless for the buyer. Full proof (settlement tx, the
+    facilitator's real gas-cost balance delta, reproduction steps) in
+    [`x402-report/X402_DEMO.md`](./x402-report/X402_DEMO.md).
 
 ## License
 
