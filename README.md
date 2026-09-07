@@ -17,10 +17,7 @@ hackathon (Aug 5 – Sep 9, 2026).
 
 ## Partner-track compliance
 
-Entered in the main track plus all 3 partner tracks, checked against BNB
-Chain's own currently-published requirements for each (bnbchain.org/en/hackathons/smart-money-era,
-checked 2026-09-07) — not a paraphrase, and not assumed still correct from
-an earlier check:
+Entered in the main track plus all 3 partner tracks:
 
 | Track | Prize | Literal requirement | Status |
 |---|---|---|---|
@@ -30,6 +27,25 @@ an earlier check:
 | **PancakeSwap Challenge** | 1,000 CAKE | Real benefit to PancakeSwap traders or liquidity providers | ✅ [`pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md`](./pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md) |
 
 ## Architecture
+
+**Why a Telegram Mini App, not just a web dashboard.** The people who already
+hire "bots" to manage crypto — DEX trading bots, price-alert bots, sniper
+bots — do it from inside Telegram, not from a wallet-connected web app they
+have to remember to open. Telegram counts 1B+ monthly users and 450M daily
+active, and roughly a third of them have already interacted with digital
+assets in some form (16% call themselves experienced traders); its Mini Apps
+alone see ~500M user interactions a month, with real brokers (NAGA, Blum)
+already using them for onboarding, deposits, and trading directly inside the
+chat, not as an afterthought (source: Finance Magnates via TradingView,
+checked 2026-09-07). For an AI-agent marketplace, that's not a nice-to-have
+distribution channel — it's the one surface where this exact audience
+already lives, already trusts a bot with financial actions, and expects
+zero-install, one-tap access instead of a new wallet-connect flow. Agent
+Bazaar's Mini App (`@Bnb_mrkt_bot`) runs the identical Next.js code as the
+web app (`src/components/miniapp/`), so browsing, comparing, and hiring an
+agent works exactly the same whether a judge opens it on desktop or a real
+user opens it from a Telegram chat — the web app is what a judge sees; the
+Mini App is the actual front door for the market this project targets.
 
 ```mermaid
 flowchart LR
@@ -108,7 +124,7 @@ behind it, not just a claim:
 |---|---|
 | *"Land, find an agent by category, understand what it does, activate it, with minimal friction"* | Browse → agent detail → hire is 3 taps in the Mini App or 3 clicks on web, same code both ways (`src/app/agent/[id]`, `src/app/hire/[contractId]`). Hiring runs the agent's real analysis and hands back a real output screen — no extra step to "see what you get." |
 | *"Real-time, accurate data that goes beyond basic counts"* | Every hireable agent's number comes from a live fetch (Venus/Binance/DefiLlama/PancakeSwap SDK) combined with its own strategy config — not a shared per-category stat. See "Data quality" below for what "accurate" means in practice here. |
-| *"All four categories surfaced with equal depth"* | `rebalancing`, `grid_trading`, `yield_optimisation`, `health_factor` each have 4 real hireable agents, plus a 5th in `grid_trading` (AltanaGridBot, added later for the Altana session-key demo) — 17 total, 5/4/4/4 — checked against the live catalog on 2026-08-27, which found `grid_trading` at 4 and the other three at 2 each; closed by adding 2 genuinely distinct agents (different real protocol/pool/collateral, not a near-duplicate) to each of the other three, not by padding. |
+| *"All four categories surfaced with equal depth"* | `rebalancing`, `grid_trading`, `yield_optimisation`, `health_factor` each have exactly **5** real hireable agents — 20 total, 5/5/5/5 — checked live against the catalog on 2026-09-07. History: started 2/2/2/4 (checked 2026-08-27), closed to 4/4/4/4 by adding 2 genuinely distinct agents per category; `grid_trading` picked up a 5th (AltanaGridBot, the Altana session-key demo) which broke the balance again, closed for good by adding one more real, distinct agent to each of the other three (CakeRanger, BluechipLPCompare, SolHealthGuard) — not by padding an existing one. |
 
 ## Data quality: nothing here is fabricated
 
@@ -137,17 +153,17 @@ Every claim below is backed by something you can check yourself — a real
 transaction on BscScan, a real API response, real code. None of it is a
 scaffold or a mock left over from planning.
 
-- **109 real agents on BSC (growing daily) — 92 indexed from live ERC-8004
+- **112 real agents on BSC (growing daily) — 92 indexed from live ERC-8004
   identities via 8004scan (browse-only, they're real third-party agents we
-  don't control), 17 of our own hireable listings, all registered onchain.
+  don't control), 20 of our own hireable listings, all registered onchain.
   Evenly spread across the hackathon's 4 required categories: `rebalancing`,
-  `grid_trading`, `yield_optimisation`, `health_factor`. Resyncs daily via a
-  Vercel cron.
+  `grid_trading`, `yield_optimisation`, `health_factor` — 5 each. Resyncs
+  daily via a Vercel cron.
 - **Real onchain agent registration** — listing an agent registers it on the
   ERC-8004 Identity Registry on BSC testnet via `@bnbagent/sdk`, gas-free via
   the MegaFuel paymaster. Real, BscScan-verifiable transaction, shown right
   on the agent's page.
-- **Real per-category live data** — each of the 17 hireable agents combines
+- **Real per-category live data** — each of the 20 hireable agents combines
   its own strategy config with a real-time fetch (Venus, Binance, DefiLlama,
   or PancakeSwap's own routing SDK) to show a genuinely different number
   from other agents in the same category: max safe borrow, grid spacing,

@@ -30,6 +30,22 @@ async function main() {
     try {
       switch (agent.category) {
         case 'grid_trading':
+          // Mirrors the exact exclusion guard src/app/agent/[id]/page.tsx uses
+          // for the Live Signal card (`altana_session_agent` / `payment_rail
+          // === 'x402'`) — the metadata.strategy check alone missed X402PayBot,
+          // whose metadata has no `strategy` field at all (just payment_rail),
+          // so it fell through to backtestGrid's defaults and got the exact
+          // same fabricated backtest as GridBot Pro. Checking the real
+          // discriminators these agents are already known by, not just the
+          // absence of one field, catches all three non-grid agents in this
+          // category (PancakeRouter, AltanaGridBot, X402PayBot).
+          if (
+            metadata.altana_session_agent ||
+            metadata.payment_rail === 'x402' ||
+            (metadata.strategy && metadata.strategy !== 'grid_trading')
+          ) {
+            break;
+          }
           trackRecord = await backtestGrid({
             symbol: metadata.symbol as string | undefined,
             spacingAtrMultiple: Number(metadata.spacing_atr_multiple ?? 0.5),
