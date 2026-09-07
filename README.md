@@ -36,8 +36,8 @@ active, and roughly a third of them have already interacted with digital
 assets in some form (16% call themselves experienced traders); its Mini Apps
 alone see ~500M user interactions a month, with real brokers (NAGA, Blum)
 already using them for onboarding, deposits, and trading directly inside the
-chat, not as an afterthought (source: Finance Magnates via TradingView,
-checked 2026-09-07). For an AI-agent marketplace, that's not a nice-to-have
+chat, not as an afterthought (source: Finance Magnates via TradingView).
+For an AI-agent marketplace, that's not a nice-to-have
 distribution channel — it's the one surface where this exact audience
 already lives, already trusts a bot with financial actions, and expects
 zero-install, one-tap access instead of a new wallet-connect flow. Agent
