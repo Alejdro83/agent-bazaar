@@ -120,7 +120,7 @@ sequenceDiagram
 |---|---|
 | *"Land, find an agent by category, understand what it does, activate it, with minimal friction"* | Browse → agent detail → hire is 3 taps in the Mini App or 3 clicks on web, same code both ways (`src/app/agent/[id]`, `src/app/hire/[contractId]`). Hiring runs the agent's real analysis and hands back a real output screen — no extra step to "see what you get." |
 | *"Real-time, accurate data that goes beyond basic counts"* | Every hireable agent's number comes from a live fetch (Venus/Binance/DefiLlama/PancakeSwap SDK) combined with its own strategy config — not a shared per-category stat. See "Data quality" below for what "accurate" means in practice here. |
-| *"All four categories surfaced with equal depth"* | `rebalancing`, `grid_trading`, `yield_optimisation`, `health_factor` each have exactly **5** real hireable agents — 20 total, 5/5/5/5 — checked live against the catalog on 2026-09-07. History: started 2/2/2/4 (checked 2026-08-27), closed to 4/4/4/4 by adding 2 genuinely distinct agents per category; `grid_trading` picked up a 5th (AltanaGridBot, the Altana session-key demo) which broke the balance again, closed for good by adding one more real, distinct agent to each of the other three (CakeRanger, BluechipLPCompare, SolHealthGuard) — not by padding an existing one. |
+| *"All four categories surfaced with equal depth"* | `rebalancing`, `grid_trading`, `yield_optimisation`, `health_factor` each have exactly **5** real hireable agents — 20 total, 5/5/5/5. |
 
 ## Data quality: nothing here is fabricated
 
