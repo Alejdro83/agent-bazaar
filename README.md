@@ -13,9 +13,21 @@ real AI agents on BNB Smart Chain. Built for BNB Chain's **"Build the Era"**
 hackathon (Aug 5 – Sep 9, 2026).
 
 **Live:** [agent-bazaar-wheat.vercel.app](https://agent-bazaar-wheat.vercel.app) · Bot: [`@Bnb_mrkt_bot`](https://t.me/Bnb_mrkt_bot)
-**TermiX submission:** [`termix-report/AGENT_ADVANTAGE_REPORT.md`](./termix-report/AGENT_ADVANTAGE_REPORT.md)
-**PancakeSwap Partner Challenge submission:** [`pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md`](./pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md)
 **MCP agent-to-agent demo:** [`mcp-demo-report/MCP_AGENT_TO_AGENT_DEMO.md`](./mcp-demo-report/MCP_AGENT_TO_AGENT_DEMO.md) — a real MCP client discovering and hiring a marketplace agent, zero human clicks
+
+## Partner-track compliance
+
+Entered in the main track plus all 3 partner tracks, checked against BNB
+Chain's own currently-published requirements for each (bnbchain.org/en/hackathons/smart-money-era,
+checked 2026-09-07) — not a paraphrase, and not assumed still correct from
+an earlier check:
+
+| Track | Prize | Literal requirement | Status |
+|---|---|---|---|
+| **Main — Build the BNB Agent Studio Marketplace** | $30,000 + official adoption | Functionality, Data Quality, Agent Diversity (4 categories, equal depth) | ✅ See "How this hits BNB Chain's own judging bar" below |
+| **Best Built with Altana** (AltLayer) | 50,000 Altana XP | *"Live onchain transactions in the Altana explorer, on testnet or mainnet"* | ✅ Real session grant + real capped swap + real revoke, all independently verified onchain — see "Altana session-key delegated execution" under Scope decisions below |
+| **TermiX Challenge** | $6,000 / $3,000 / $1,000 | Agent Advantage Report, 3+ real tasks, agent vs. non-agent, cost + time + output quality | ✅ [`termix-report/AGENT_ADVANTAGE_REPORT.md`](./termix-report/AGENT_ADVANTAGE_REPORT.md) |
+| **PancakeSwap Challenge** | 1,000 CAKE | Real benefit to PancakeSwap traders or liquidity providers | ✅ [`pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md`](./pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md) |
 
 ## Architecture
 
