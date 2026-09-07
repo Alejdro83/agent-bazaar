@@ -21,7 +21,7 @@ Entered in the main track plus all 3 partner tracks:
 
 | Track | Prize | Literal requirement | Status |
 |---|---|---|---|
-| **Main — Build the BNB Agent Studio Marketplace** | $30,000 + official adoption | Functionality, Data Quality, Agent Diversity (4 categories, equal depth) | ✅ See "How this hits BNB Chain's own judging bar" below |
+| **Main — Build the BNB Agent Studio Marketplace** | $30,000 + official adoption | Functionality, Data Quality, Agent Diversity (4 categories, equal depth) | ✅ See "How this hits BNB's hackathon criteria" below |
 | **Best Built with Altana** (AltLayer) | 50,000 Altana XP | *"Live onchain transactions in the Altana explorer, on testnet or mainnet"* | ✅ Real session grant + real capped swap + real revoke — verifiable directly in [Altana's own Keystore Explorer](https://testnet.altana.network/account/0x8d147CFFBb304d57C744b4f8DB7Eb266c8e0Aa25), not just BscScan — see "Altana session-key delegated execution" under Scope decisions below |
 | **TermiX Challenge** | $6,000 / $3,000 / $1,000 | Agent Advantage Report, 3+ real tasks, agent vs. non-agent, cost + time + output quality | ✅ [`termix-report/AGENT_ADVANTAGE_REPORT.md`](./termix-report/AGENT_ADVANTAGE_REPORT.md) |
 | **PancakeSwap Challenge** | 1,000 CAKE | Real benefit to PancakeSwap traders or liquidity providers | ✅ [`pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md`](./pancakeswap-report/PANCAKESWAP_BENEFIT_REPORT.md) |
@@ -114,13 +114,9 @@ sequenceDiagram
     AB-->>B: Deliverable + BscScan link
 ```
 
-## How this hits BNB Chain's own judging bar
+## How this hits BNB's hackathon criteria
 
-Quoting the hackathon's own published criteria (bnbchain.org/en/hackathons/smart-money-era,
-checked 2026-08-27), not a paraphrase — each one mapped to the actual code/data
-behind it, not just a claim:
-
-| Criterion (BNB Chain's own wording) | How this build hits it |
+| Criterion | How this build hits it |
 |---|---|
 | *"Land, find an agent by category, understand what it does, activate it, with minimal friction"* | Browse → agent detail → hire is 3 taps in the Mini App or 3 clicks on web, same code both ways (`src/app/agent/[id]`, `src/app/hire/[contractId]`). Hiring runs the agent's real analysis and hands back a real output screen — no extra step to "see what you get." |
 | *"Real-time, accurate data that goes beyond basic counts"* | Every hireable agent's number comes from a live fetch (Venus/Binance/DefiLlama/PancakeSwap SDK) combined with its own strategy config — not a shared per-category stat. See "Data quality" below for what "accurate" means in practice here. |
