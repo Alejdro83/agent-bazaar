@@ -246,7 +246,15 @@ export default function HireResultPage() {
           ))}
 
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Session key (registered in KeyStore)</p>
-          <p className="text-sm text-gray-300 font-mono break-all mb-3">{session.sessionPublicKey}</p>
+          <p className="text-sm text-gray-300 font-mono break-all mb-1">{session.sessionPublicKey}</p>
+          <a
+            href={`https://testnet.altana.network/account/${session.sessionWalletAddress}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block text-sm text-sky-400 hover:text-sky-300 underline mb-3"
+          >
+            Verify in Altana&apos;s Keystore Explorer ↗
+          </a>
 
           {session.status === 'revoked' ? (
             <p className="text-xs text-gray-500 flex items-center gap-1">

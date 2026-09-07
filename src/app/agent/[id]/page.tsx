@@ -624,7 +624,17 @@ export default function AgentDetailPage() {
           <p className="text-sm text-gray-400 mb-3">
             Grants a real, self-custodial Altana session scoped to a call allowlist, a native BNB
             spend cap, and an expiry — registered onchain in the public KeyStore registry. You can
-            view the exact permissions and revoke it at any time from the hire page.
+            view the exact permissions and revoke it at any time from the hire page, and verify the
+            grant independently in{' '}
+            <a
+              href="https://testnet.altana.network"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sky-400 hover:text-sky-300 underline"
+            >
+              Altana&apos;s own Keystore Explorer ↗
+            </a>
+            .
           </p>
           <button
             onClick={handleGrantAltanaSession}
