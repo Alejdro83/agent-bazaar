@@ -96,7 +96,7 @@ behind it, not just a claim:
 |---|---|
 | *"Land, find an agent by category, understand what it does, activate it, with minimal friction"* | Browse → agent detail → hire is 3 taps in the Mini App or 3 clicks on web, same code both ways (`src/app/agent/[id]`, `src/app/hire/[contractId]`). Hiring runs the agent's real analysis and hands back a real output screen — no extra step to "see what you get." |
 | *"Real-time, accurate data that goes beyond basic counts"* | Every hireable agent's number comes from a live fetch (Venus/Binance/DefiLlama/PancakeSwap SDK) combined with its own strategy config — not a shared per-category stat. See "Data quality" below for what "accurate" means in practice here. |
-| *"All four categories surfaced with equal depth"* | `rebalancing`, `grid_trading`, `yield_optimisation`, `health_factor` each have exactly 4 real hireable agents (16 total) — checked against the live catalog on 2026-08-27, which found `grid_trading` at 4 and the other three at 2 each; closed by adding 2 genuinely distinct agents (different real protocol/pool/collateral, not a near-duplicate) to each of the other three, not by padding. |
+| *"All four categories surfaced with equal depth"* | `rebalancing`, `grid_trading`, `yield_optimisation`, `health_factor` each have 4 real hireable agents, plus a 5th in `grid_trading` (AltanaGridBot, added later for the Altana session-key demo) — 17 total, 5/4/4/4 — checked against the live catalog on 2026-08-27, which found `grid_trading` at 4 and the other three at 2 each; closed by adding 2 genuinely distinct agents (different real protocol/pool/collateral, not a near-duplicate) to each of the other three, not by padding. |
 
 ## Data quality: nothing here is fabricated
 
@@ -125,7 +125,7 @@ Every claim below is backed by something you can check yourself — a real
 transaction on BscScan, a real API response, real code. None of it is a
 scaffold or a mock left over from planning.
 
-- **109 real agents on BSC (growing daily) — 9 indexed from live ERC-8004
+- **109 real agents on BSC (growing daily) — 92 indexed from live ERC-8004
   identities via 8004scan (browse-only, they're real third-party agents we
   don't control), 17 of our own hireable listings, all registered onchain.
   Evenly spread across the hackathon's 4 required categories: `rebalancing`,
